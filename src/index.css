@@ -166,10 +166,16 @@ body {
 }
 .btn-wood.gold {
   background:
-    linear-gradient(180deg, rgba(255, 220, 160, 0.16), rgba(0, 0, 0, 0.35)),
-    repeating-linear-gradient(90deg, #7a4e18 0px, #7a4e18 3px, #c68234 3px, #c68234 6px);
-  color: #1a1412;
-  text-shadow: 0 1px 0 rgba(255, 220, 160, 0.3);
+    linear-gradient(180deg, rgba(255, 240, 200, 0.22), rgba(0, 0, 0, 0.28)),
+    linear-gradient(180deg, #d99c3a 0%, #a67320 55%, #6e4612 100%);
+  color: #faf0d8;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    -1px -1px 0 rgba(0, 0, 0, 0.4);
+  border-color: #2a1a0a;
+}
+.btn-wood.gold:hover {
+  filter: brightness(1.1);
 }
 
 /* Code input */

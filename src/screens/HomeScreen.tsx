@@ -19,7 +19,7 @@ export default function HomeScreen() {
   const ambientOn = useStore((s) => s.ambientOn);
   const toggleAmbient = useStore((s) => s.toggleAmbient);
   const error = useStore((s) => s.error);
-  // On mount, if URL hash has a code, prefill join input
+  // On mount, if URL hash has a code, prefill join input + auto-rejoin
   const initial = useState(() => {
     const url = readUrlSession();
     return url;
@@ -31,6 +31,16 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!nameInput) setName('Viking');
+    // Fully-automatic rejoin: if URL hash has a code or ai, kick the session off
+    // after a brief tick so the store/name is set.
+    const t = setTimeout(() => {
+      if (initial.code) {
+        joinSession(initial.code);
+      } else if (initial.ai) {
+        hostSoloSession(initial.ai);
+      }
+    }, 60);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
