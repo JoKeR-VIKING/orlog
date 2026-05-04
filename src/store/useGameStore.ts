@@ -350,7 +350,7 @@ export const useStore = create<Store>((set, get) => ({
 
   hostSession: () => {
     const code = randomCode(6);
-    const name = get().nameInput || 'Viking';
+    const name = get().nameInput || 'Wanderer';
     openSession(get, set, code, name, null);
   },
 
@@ -360,12 +360,12 @@ export const useStore = create<Store>((set, get) => ({
       set({ error: 'Enter a valid session code.' });
       return;
     }
-    const name = get().nameInput || 'Warrior';
+    const name = get().nameInput || 'Wanderer';
     openSession(get, set, clean, name, null);
   },
 
   hostSoloSession: (difficulty) => {
-    const name = get().nameInput || 'Viking';
+    const name = get().nameInput || 'Wanderer';
     openSoloSession(get, set, name, difficulty);
   },
 

@@ -8,6 +8,19 @@ import { readUrlSession } from '../utils/sessionHash';
 
 const DIFFS: Difficulty[] = ['skald', 'vikingr', 'berserkr'];
 
+// Nordic gods + legendary figures used as default names.
+const NORDIC_NAMES = [
+  'Odin', 'Thor', 'Freya', 'Loki', 'Tyr', 'Heimdall', 'Bragi', 'Idun',
+  'Njord', 'Frigg', 'Sif', 'Ullr', 'Vidar', 'Vali', 'Hodr', 'Skadi',
+  'Freyr', 'Eir', 'Saga', 'Hel', 'Sigyn', 'Fulla', 'Gefjun', 'Ran',
+  'Ragnar', 'Bjorn', 'Lagertha', 'Ivar', 'Sigurd', 'Brynhild', 'Astrid',
+  'Erik', 'Halfdan', 'Gunnar', 'Hrafn', 'Sven', 'Ulf', 'Ingrid', 'Helga',
+];
+
+function randomNordicName(): string {
+  return NORDIC_NAMES[Math.floor(Math.random() * NORDIC_NAMES.length)];
+}
+
 export default function HomeScreen() {
   const nameInput = useStore((s) => s.nameInput);
   const setName = useStore((s) => s.setName);
@@ -30,7 +43,7 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    if (!nameInput) setName('Viking');
+    if (!nameInput) setName(randomNordicName());
     // Fully-automatic rejoin: if URL hash has a code or ai, kick the session off
     // after a brief tick so the store/name is set.
     const t = setTimeout(() => {
