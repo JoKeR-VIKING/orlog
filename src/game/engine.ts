@@ -10,7 +10,8 @@ import { DIE_FACE_ORDER, GOD_FAVOR_MAP } from './types';
 
 export const MAX_HP = 15;
 export const DICE_COUNT = 6;
-export const MAX_REROLLS = 2;
+export const MAX_ROLLS = 3;
+export const MAX_REROLLS = MAX_ROLLS - 1;
 
 export function freshPlayer(name: string): PlayerState {
   return {
@@ -21,8 +22,10 @@ export function freshPlayer(name: string): PlayerState {
       id: i,
       face: 'axe' as DieFace,
       kept: false,
+      selected: false,
     })),
-    rollsLeft: MAX_REROLLS,
+    rollsLeft: MAX_ROLLS,
+    turnRolled: false,
     ready: false,
     favorReady: false,
     pendingFavors: [],
@@ -35,6 +38,7 @@ export function freshSnapshot(hostName = 'Host', guestName = 'Guest'): GameSnaps
     phase: 'roll',
     round: 1,
     turn: 'host',
+    rollTurn: 'host',
     host: freshPlayer(hostName),
     guest: freshPlayer(guestName),
     log: ['The game begins. May the Norns favor you.'],
@@ -57,11 +61,15 @@ export function applyRollForPlayer(player: PlayerState, faces: DieFace[], initia
   for (let i = 0; i < DICE_COUNT; i++) {
     if (initial || !player.dice[i].kept) {
       player.dice[i].face = faces[i];
+      player.dice[i].selected = false;
     }
   }
   if (initial) {
     // First roll of the round -> everything unkept
-    player.dice.forEach((d) => (d.kept = false));
+    player.dice.forEach((d) => {
+      d.kept = false;
+      d.selected = false;
+    });
   }
 }
 
@@ -170,14 +178,10 @@ export function resolveRound(snap: GameSnapshot): ResolveReport {
   }
 
   // 4) Compute damage: axes vs helmets, arrows vs shields
-  const hostDmg = Math.max(0, hostCounts.axe - guest.dice.length * 0) // placeholder; uses counts below
-    ;
-  // Real calc
   const hostAxeDmg = Math.max(0, hostCounts.axe - guestCounts.helmet);
   const hostArrowDmg = Math.max(0, hostCounts.arrow - guestCounts.shield);
   const guestAxeDmg = Math.max(0, guestCounts.axe - hostCounts.helmet);
   const guestArrowDmg = Math.max(0, guestCounts.arrow - hostCounts.shield);
-  void hostDmg;
 
   let hostDamageTaken = guestAxeDmg + guestArrowDmg;
   let guestDamageTaken = hostAxeDmg + hostArrowDmg;
@@ -253,12 +257,17 @@ export function resolveRound(snap: GameSnapshot): ResolveReport {
 export function beginNextRound(snap: GameSnapshot): void {
   snap.round += 1;
   snap.turn = snap.turn === 'host' ? 'guest' : 'host';
+  snap.rollTurn = snap.turn;
   [snap.host, snap.guest].forEach((p) => {
-    p.rollsLeft = MAX_REROLLS;
+    p.rollsLeft = MAX_ROLLS;
+    p.turnRolled = false;
     p.ready = false;
     p.favorReady = false;
     p.rolling = false;
-    p.dice.forEach((d) => (d.kept = false));
+    p.dice.forEach((d) => {
+      d.kept = false;
+      d.selected = false;
+    });
   });
   snap.phase = 'roll';
 }

@@ -1,4 +1,4 @@
-import { useStore } from '../store/useGameStore';
+import { MAX_ROLLS, useStore } from '../store/useGameStore';
 import { WoodenButton } from '../components/ui/WoodenButton';
 import { PlayerHUD } from '../components/ui/PlayerHUD';
 import { GodFavorPanel } from '../components/ui/GodFavorPanel';
@@ -49,11 +49,18 @@ export default function GameScreen() {
 
   if (!selfSide) return null;
   const self = snap[selfSide];
-  const opponent = snap[selfSide === 'host' ? 'guest' : 'host'];
+  const opponentSide = selfSide === 'host' ? 'guest' : 'host';
+  const opponent = snap[opponentSide];
+  const selfTurn = snap.phase === 'roll' && snap.rollTurn === selfSide;
+  const selfMustLock = selfTurn && self.turnRolled && !self.ready;
+  const selfHasRolled = snap.phase !== 'roll' || self.rollsLeft < MAX_ROLLS || self.turnRolled || self.ready;
+  const opponentHasRolled = snap.phase !== 'roll' || opponent.rollsLeft < MAX_ROLLS || opponent.turnRolled || opponent.ready;
+  const canSeeOpponentDie = (kept: boolean) => kept || (opponentHasRolled && !selfMustLock && !opponent.rolling);
 
   const canRoll =
-    snap.phase === 'roll' && !self.rolling && !self.ready && self.rollsLeft > 0;
-  const canStand = snap.phase === 'roll' && !self.rolling;
+    selfTurn && !self.rolling && !self.ready && !self.turnRolled && self.rollsLeft > 0;
+  const canLock = selfTurn && !self.rolling && !self.ready && self.turnRolled;
+  const canSelectDice = selfTurn && !self.rolling && !self.ready && self.turnRolled;
   const canFavor = snap.phase === 'favor' && !self.favorReady;
 
   // Reconnect timer (only relevant in non-solo mode)
@@ -70,13 +77,7 @@ export default function GameScreen() {
           player={opponent}
           side={selfSide === 'host' ? 'guest' : 'host'}
           isSelf={false}
-          active={
-            snap.phase === 'roll'
-              ? opponent.rolling || !opponent.ready
-              : snap.phase === 'favor'
-                ? !opponent.favorReady
-                : false
-          }
+          active={snap.phase === 'roll' ? snap.rollTurn === opponentSide : snap.phase === 'favor' ? !opponent.favorReady : false}
           floaters={floaters}
           align="left"
         />
@@ -86,17 +87,28 @@ export default function GameScreen() {
           player={self}
           side={selfSide}
           isSelf
-          active={
-            snap.phase === 'roll'
-              ? self.rolling || !self.ready
-              : snap.phase === 'favor'
-                ? !self.favorReady
-                : false
-          }
+          active={snap.phase === 'roll' ? selfTurn : snap.phase === 'favor' ? !self.favorReady : false}
           floaters={floaters}
           align="right"
         />
       </div>
+
+      {/* Left side: game log */}
+      {log.length > 0 && (
+        <div
+          className="absolute left-3 md:left-5 top-36 md:top-40 z-20 parchment px-3 py-2 text-xs md:text-sm text-[#3a2a18] w-64 md:w-72 max-h-52 overflow-hidden"
+          data-testid="resolution-log"
+        >
+          <div className="heading-carved text-[10px] md:text-xs uppercase tracking-widest text-[#5a3a1f] mb-1">
+            Saga Log
+          </div>
+          <div className="space-y-0.5">
+            {log.map((line, i) => (
+              <div key={i} className="leading-snug">{line}</div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Top center: phase + round */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
@@ -106,11 +118,11 @@ export default function GameScreen() {
           </span>
         </div>
         {!opponentPresent && snap.phase !== 'game-over' && !aiMode && (
-          <div className={`mt-2 parchment px-4 py-2 text-xs md:text-sm tracking-wider ${reconnectTimedOut ? 'text-[#8b261d]' : 'text-[#3a2a18]'}`}
+          <div className={`mt-2 parchment px-4 py-2 text-xs md:text-sm tracking-wider ${reconnectTimedOut ? 'text-blood' : 'text-[#3a2a18]'}`}
             data-testid="opponent-disconnected" style={{ pointerEvents: 'auto' }}>
             {reconnectTimedOut ? (
               <div className="flex flex-col sm:flex-row items-center gap-3">
-                <span className="heading-carved text-[#8b261d]">The foe has fled the field.</span>
+                <span className="heading-carved text-blood">The foe has fled the field.</span>
                 <WoodenButton variant="gold" onClick={leave} data-testid="abandon-session-button">
                   End Saga
                 </WoodenButton>
@@ -118,7 +130,7 @@ export default function GameScreen() {
             ) : (
               <span>
                 <span className="rune-title text-base mr-2">ᚺ</span>
-                Opponent reconnecting&hellip; <span className="text-[#8b261d] font-bold">{reconnectSecondsLeft}s</span>
+                Opponent reconnecting&hellip; <span className="text-blood font-bold">{reconnectSecondsLeft}s</span>
               </span>
             )}
           </div>
@@ -145,20 +157,28 @@ export default function GameScreen() {
           <>
             {/* Opponent dice (small, read-only) */}
             <div className="flex items-center gap-1.5 md:gap-2 opacity-85">
-              <span className="heading-carved text-xs text-[var(--color-text-secondary)] mr-1 hidden md:inline">
+              <span className="heading-carved text-xs text-text-secondary mr-1 hidden md:inline">
                 {opponent.name}:
               </span>
-              {opponent.dice.map((d, i) => (
-                <div
-                  key={i}
-                  className="dice-chip disabled"
-                  style={{ width: 38, height: 38, opacity: opponent.rolling ? 0.35 : 1 }}
-                  data-testid={`opponent-dice-${i}`}
-                  title={d.face}
-                >
-                  <DieFaceIcon face={d.face} size={22} />
-                </div>
-              ))}
+              {opponent.dice.map((d, i) => {
+                const visible = canSeeOpponentDie(d.kept);
+                return (
+                  <div
+                    key={i}
+                    className={`dice-chip disabled ${d.kept || d.selected ? 'kept' : ''}`}
+                    style={{ width: 38, height: 38 }}
+                    data-testid={`opponent-dice-${i}`}
+                    title={visible ? `${d.face}${d.kept ? ' (locked)' : d.selected ? ' (selected)' : ''}` : 'Hidden'}
+                  >
+                    {visible ? <DieFaceIcon face={d.face} size={22} /> : <span className="heading-carved text-sm">?</span>}
+                    {visible && (d.kept || d.selected) && (
+                      <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-gold border border-black/60 text-bg-primary text-[9px] flex items-center justify-center font-bold">
+                        ✓
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Your dice tray */}
@@ -167,12 +187,15 @@ export default function GameScreen() {
               data-testid="dice-tray"
             >
               <div className="flex items-center justify-between w-full">
-                <div className="heading-carved text-sm md:text-base text-[var(--color-text-primary)]">
-                  Your Dice {self.ready && <span className="text-[var(--color-gold)] text-xs ml-2">locked</span>}
+                <div className="heading-carved text-sm md:text-base text-text-primary">
+                  Your Dice {self.ready && <span className="text-gold text-xs ml-2">locked</span>}
+                  {snap.phase === 'roll' && !selfTurn && !self.ready && (
+                    <span className="text-text-secondary text-xs ml-2">waiting</span>
+                  )}
                 </div>
-                <div className="text-xs md:text-sm text-[var(--color-text-secondary)] tracking-wider">
-                  Rolls Left:{' '}
-                  <span className="text-[var(--color-gold)] font-bold" data-testid="rolls-left">
+                <div className="text-xs md:text-sm text-text-secondary tracking-wider">
+                  Rolls Remaining:{' '}
+                  <span className="text-gold font-bold" data-testid="rolls-left">
                     {self.rollsLeft}
                   </span>
                 </div>
@@ -182,15 +205,15 @@ export default function GameScreen() {
                   <button
                     key={i}
                     onClick={() => toggleKeep(d.id)}
-                    disabled={self.rolling || self.ready || snap.phase !== 'roll'}
-                    className={`dice-chip ${d.kept ? 'kept' : ''} ${self.rolling ? 'disabled' : ''}`}
+                    disabled={!canSelectDice || d.kept}
+                    className={`dice-chip ${d.kept || d.selected ? 'kept' : ''} ${self.rolling ? 'disabled' : ''}`}
                     style={{ opacity: self.rolling ? 0.4 : 1 }}
                     data-testid={`dice-item-${i}`}
-                    title={`${d.face}${d.kept ? ' (kept)' : ''}`}
+                    title={selfHasRolled || d.kept ? `${d.face}${d.kept ? ' (locked)' : d.selected ? ' (selected)' : ''}` : 'Roll to reveal'}
                   >
-                    <DieFaceIcon face={d.face} size={30} />
-                    {d.kept && (
-                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[var(--color-gold)] border border-black/60 text-[#1a1412] text-[10px] flex items-center justify-center font-bold">
+                    {selfHasRolled || d.kept ? <DieFaceIcon face={d.face} size={30} /> : <span className="heading-carved text-base">?</span>}
+                    {(d.kept || d.selected) && (
+                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gold border border-black/60 text-bg-primary text-[10px] flex items-center justify-center font-bold">
                         ✓
                       </div>
                     )}
@@ -210,10 +233,10 @@ export default function GameScreen() {
                   <WoodenButton
                     variant="gold"
                     onClick={stand}
-                    disabled={!canStand || self.ready}
+                    disabled={!canLock}
                     data-testid="stand-button"
                   >
-                    Stand (Lock)
+                    Lock Dice
                   </WoodenButton>
                 </div>
               )}
@@ -221,38 +244,24 @@ export default function GameScreen() {
           </>
         )}
 
-        {/* Resolution log */}
-        {log.length > 0 && (
-          <div
-            className="parchment px-3 py-2 max-w-xl text-xs md:text-sm text-[#3a2a18] w-full"
-            data-testid="resolution-log"
-            style={{ minHeight: 36 }}
-          >
-            <div className="space-y-0.5">
-              {log.map((line, i) => (
-                <div key={i} className="leading-snug">{line}</div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Top-right overlay leave button */}
       <button
         onClick={leave}
-        className="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-30 text-xs uppercase tracking-widest text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
+        className="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-30 text-xs uppercase tracking-widest text-text-secondary hover:text-accent transition-colors"
         data-testid="leave-game-button"
       >
         &#x2715; Forfeit
       </button>
       {code && (
-        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-[var(--color-text-secondary)]/60">
-          Rune: <span className="text-[var(--color-gold)] font-bold">{code}</span>
+        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/60">
+          Rune: <span className="text-gold font-bold">{code}</span>
         </div>
       )}
       {aiMode && (
-        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-[var(--color-text-secondary)]/70" data-testid="solo-mode-badge">
-          Vs <span className="text-[var(--color-gold)] font-bold">{aiMode === 'skald' ? 'Skald' : aiMode === 'vikingr' ? 'Vikingr' : 'Berserkr'}</span>
+        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/70" data-testid="solo-mode-badge">
+          Vs <span className="text-gold font-bold">{aiMode === 'skald' ? 'Skald' : aiMode === 'vikingr' ? 'Vikingr' : 'Berserkr'}</span>
         </div>
       )}
     </div>

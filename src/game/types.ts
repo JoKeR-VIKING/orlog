@@ -15,6 +15,7 @@ export interface Die {
   id: number; // 0..5 within the player's 6 dice
   face: DieFace;
   kept: boolean; // kept between rerolls
+  selected: boolean; // selected during the current lock action, not committed yet
 }
 
 export type PlayerSide = 'host' | 'guest';
@@ -31,7 +32,8 @@ export interface PlayerState {
   hp: number;
   favor: number; // currency ⌘
   dice: Die[];
-  rollsLeft: number; // remaining rerolls (starts at 2 after initial roll)
+  rollsLeft: number; // remaining rolls this round (starts at 3)
+  turnRolled: boolean; // true after this player's current turn roll, before locking/passing
   ready: boolean; // ready to move to favor phase (finished roll)
   favorReady: boolean; // ready to move past favor phase
   pendingFavors: string[]; // list of god favor ids chosen to cast this round
@@ -42,6 +44,7 @@ export interface GameSnapshot {
   phase: Phase;
   round: number;
   turn: PlayerSide; // who rolls first this round
+  rollTurn: PlayerSide; // whose roll/lock action is active during the roll phase
   host: PlayerState;
   guest: PlayerState;
   log: string[]; // resolution log

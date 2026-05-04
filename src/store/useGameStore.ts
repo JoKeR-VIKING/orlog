@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import {
+  MAX_ROLLS,
   MAX_REROLLS,
   applyRollForPlayer,
   beginNextRound,
@@ -83,59 +84,41 @@ function addFloater(set: (fn: (s: Store) => Partial<Store>) => void, side: Playe
   }, 1700);
 }
 
-// Host performs initial roll: generate seed, apply to both players, broadcast
-function hostInitialRoll(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void) {
-  const { snap } = get();
-  const seed = randomSeed();
-  const hostFaces = rollSix(seed, 'host');
-  const guestFaces = rollSix(seed, 'guest');
-
-  snap.host.rolling = true;
-  snap.guest.rolling = true;
-  set({ snap: structuredClone(snap) });
-  broadcastSnapshot(get);
-  audio.play('cupCover');
-  setTimeout(() => audio.play('shake'), 250);
-
-  setTimeout(() => {
-    const s2 = get().snap;
-    applyRollForPlayer(s2.host, hostFaces, true);
-    applyRollForPlayer(s2.guest, guestFaces, true);
-    s2.host.rolling = false;
-    s2.guest.rolling = false;
-    s2.host.ready = false;
-    s2.guest.ready = false;
-    set({ snap: structuredClone(s2) });
-    broadcastSnapshot(get);
-    audio.play('diceReveal');
-    // trigger AI to act if needed
-    maybeScheduleAi(get, set);
-  }, 1400);
+function passRollTurn(snap: GameSnapshot, side: PlayerSide) {
+  const other = side === 'host' ? 'guest' : 'host';
+  if (!snap[other].ready) {
+    snap.rollTurn = other;
+  } else if (!snap[side].ready) {
+    snap.rollTurn = side;
+  }
 }
 
-function hostReroll(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void, side: PlayerSide) {
+// Host performs one active player's roll. Players then lock dice to pass the roll turn.
+function hostRoll(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void, side: PlayerSide) {
   const { snap } = get();
   const p = snap[side];
-  if (p.rollsLeft <= 0) return;
-  const allKept = p.dice.every((d) => d.kept);
-  if (allKept) return;
+  if (snap.phase !== 'roll' || snap.rollTurn !== side) return;
+  if (p.rolling || p.ready || p.turnRolled || p.rollsLeft <= 0) return;
+  if (p.dice.every((d) => d.kept)) return;
+
+  const initial = p.rollsLeft === MAX_ROLLS;
   const seed = randomSeed();
-  const faces = rollSix(seed, `${side}-rr-${p.rollsLeft}`);
+  const faces = rollSix(seed, `${side}-r${MAX_ROLLS - p.rollsLeft + 1}`);
   p.rolling = true;
   p.rollsLeft -= 1;
   set({ snap: structuredClone(snap) });
   broadcastSnapshot(get);
   audio.play('cupCover');
   setTimeout(() => audio.play('shake'), 250);
+
   setTimeout(() => {
     const s2 = get().snap;
-    applyRollForPlayer(s2[side], faces, false);
+    applyRollForPlayer(s2[side], faces, initial);
     s2[side].rolling = false;
-    if (s2[side].rollsLeft <= 0) s2[side].ready = true;
+    s2[side].turnRolled = true;
     set({ snap: structuredClone(s2) });
     broadcastSnapshot(get);
     audio.play('diceReveal');
-    maybeAdvancePhase(get, set);
     maybeScheduleAi(get, set);
   }, 1400);
 }
@@ -183,9 +166,7 @@ function maybeAdvancePhase(get: () => Store, set: (partial: Partial<Store> | ((s
         beginNextRound(s2);
         set({ snap: structuredClone(s2) });
         broadcastSnapshot(get);
-        setTimeout(() => {
-          hostInitialRoll(get, set);
-        }, 900);
+        maybeScheduleAi(get, set);
       }
     }, 2600);
   }
@@ -199,11 +180,20 @@ function maybeScheduleAi(get: () => Store, set: (partial: Partial<Store> | ((s: 
   if (selfSide !== 'host') return; // AI runs on host only
   if (snap.phase !== 'roll' && snap.phase !== 'favor') return;
   if (snap.guest.rolling) return;
-  if (snap.phase === 'roll' && snap.guest.ready) return;
+  if (snap.phase === 'roll' && (snap.rollTurn !== 'guest' || snap.guest.ready)) return;
   if (snap.phase === 'favor' && snap.guest.favorReady) return;
 
-  // Plan a sequence of actions for the AI guest
-  const actions = generatePlayerActions(snap, 'guest', aiMode);
+  let actions: PlayerAction[];
+  if (snap.phase === 'roll' && !snap.guest.turnRolled) {
+    actions = [{ kind: 'reroll' }];
+  } else if (snap.phase === 'roll') {
+    actions = [
+      ...generatePlayerActions(snap, 'guest', aiMode).filter((a) => a.kind === 'toggle_keep'),
+      { kind: 'stand' },
+    ];
+  } else {
+    actions = generatePlayerActions(snap, 'guest', aiMode);
+  }
   if (actions.length === 0) return;
   runAiActions(get, set, actions);
 }
@@ -224,8 +214,11 @@ function runAiActions(
     const act = actions[i++];
     const phase = s.snap.phase;
     const g = s.snap.guest;
-    if (act.kind === 'toggle_keep' || act.kind === 'reroll' || act.kind === 'stand') {
-      if (phase !== 'roll' || g.rolling || g.ready) return;
+    if (act.kind === 'reroll') {
+      if (phase !== 'roll' || s.snap.rollTurn !== 'guest' || g.rolling || g.ready || g.turnRolled) return;
+    }
+    if (act.kind === 'toggle_keep' || act.kind === 'stand') {
+      if (phase !== 'roll' || s.snap.rollTurn !== 'guest' || g.rolling || g.ready || !g.turnRolled) return;
     }
     if (act.kind === 'cast_favor' || act.kind === 'skip_favors') {
       if (phase !== 'favor' || g.favorReady) return;
@@ -254,25 +247,40 @@ function applyAction(
       break;
     }
     case 'toggle_keep': {
-      if (snap.phase !== 'roll' || p.rolling) break;
+      if (snap.phase !== 'roll' || snap.rollTurn !== side || p.rolling || p.ready || !p.turnRolled) break;
       const d = p.dice[action.dieId];
       if (!d) break;
-      d.kept = !d.kept;
+      if (d.kept) break;
+      d.selected = !d.selected;
       set({ snap: structuredClone(snap) });
       broadcastSnapshot(get);
       break;
     }
     case 'reroll': {
-      if (snap.phase !== 'roll' || p.rolling || p.ready || p.rollsLeft <= 0) break;
-      hostReroll(get, set, side);
+      hostRoll(get, set, side);
       break;
     }
     case 'stand': {
-      if (snap.phase !== 'roll' || p.rolling) break;
-      p.ready = true;
+      if (snap.phase !== 'roll' || snap.rollTurn !== side || p.rolling || p.ready || !p.turnRolled) break;
+      p.dice.forEach((d) => {
+        if (d.selected) {
+          d.kept = true;
+          d.selected = false;
+        }
+      });
+      if (p.rollsLeft <= 0 || p.dice.every((d) => d.kept)) {
+        p.ready = true;
+        p.dice.forEach((d) => {
+          d.kept = true;
+          d.selected = false;
+        });
+      }
+      p.turnRolled = false;
+      passRollTurn(snap, side);
       set({ snap: structuredClone(snap) });
       broadcastSnapshot(get);
       maybeAdvancePhase(get, set);
+      maybeScheduleAi(get, set);
       break;
     }
     case 'cast_favor': {
@@ -304,7 +312,6 @@ function applyAction(
         const reset = freshSnapshot(snap.host.name, snap.guest.name);
         set({ snap: reset, view: 'game', floaters: [] });
         broadcastSnapshot(get);
-        setTimeout(() => hostInitialRoll(get, set), 500);
       } else {
         snap.rematchRequest = side;
         set({ snap: structuredClone(snap) });
@@ -501,7 +508,6 @@ function openSession(
       set({ view: 'game', snap: structuredClone(snap) });
       broadcastSnapshot(get);
       audio.play('horn');
-      setTimeout(() => hostInitialRoll(get, set), 700);
     }
   });
 
@@ -599,7 +605,6 @@ function openSoloSession(
   writeUrlSession({ code: null, ai: difficulty });
   if (get().ambientOn) audio.toggleAmbient(true);
   audio.play('horn');
-  setTimeout(() => hostInitialRoll(get, set), 700);
 }
 
-export { MAX_REROLLS };
+export { MAX_ROLLS, MAX_REROLLS };

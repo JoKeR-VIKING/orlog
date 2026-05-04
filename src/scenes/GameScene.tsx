@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Bowl, Cup, Table } from '../components/scene/TableAndBowls';
-import { useStore } from '../store/useGameStore';
+import { MAX_ROLLS, useStore } from '../store/useGameStore';
+import type { Die, PlayerSide } from '../game/types';
 
 export default function GameScene() {
   const snap = useStore((s) => s.snap);
@@ -8,6 +9,18 @@ export default function GameScene() {
   const selfIsHost = selfSide === 'host';
   const hostZ = selfIsHost ? 2.2 : -2.2;
   const guestZ = selfIsHost ? -2.2 : 2.2;
+  const selfMustLock = Boolean(
+    selfSide && snap.phase === 'roll' && snap.rollTurn === selfSide && snap[selfSide].turnRolled && !snap[selfSide].ready,
+  );
+  const isDieVisible = (side: PlayerSide, die: Die) => {
+    if (die.kept) return true;
+    if (snap.phase !== 'roll') return true;
+    const player = snap[side];
+    const hasRolled = player.rollsLeft < MAX_ROLLS || player.turnRolled || player.ready;
+    if (!hasRolled) return false;
+    if (side === selfSide) return !player.rolling;
+    return !player.rolling && !selfMustLock;
+  };
 
   return (
     <Canvas
@@ -23,8 +36,8 @@ export default function GameScene() {
       <directionalLight position={[0, 15, 0]} intensity={0.7} color="#ffe8b8" />
       <pointLight position={[0, 4, 0]} intensity={1.0} color="#c68234" distance={14} />
       <Table />
-      <Bowl player={snap.host} x={0} z={hostZ} />
-      <Bowl player={snap.guest} x={0} z={guestZ} />
+      <Bowl player={snap.host} x={0} z={hostZ} isDieVisible={(die) => isDieVisible('host', die)} />
+      <Bowl player={snap.guest} x={0} z={guestZ} isDieVisible={(die) => isDieVisible('guest', die)} />
       <Cup player={snap.host} x={0} z={hostZ} />
       <Cup player={snap.guest} x={0} z={guestZ} />
     </Canvas>

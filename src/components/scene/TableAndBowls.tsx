@@ -3,6 +3,162 @@ import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import type { DieFace, PlayerState } from '../../game/types';
 
+function strokePath(ctx: CanvasRenderingContext2D, draw: () => void) {
+  ctx.beginPath();
+  draw();
+  ctx.stroke();
+}
+
+function fillStrokePath(ctx: CanvasRenderingContext2D, fillOpacity: number, draw: () => void) {
+  ctx.beginPath();
+  draw();
+  ctx.save();
+  ctx.globalAlpha = fillOpacity;
+  ctx.fill();
+  ctx.restore();
+  ctx.stroke();
+}
+
+function fillCircle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fillOpacity = 1) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.save();
+  ctx.globalAlpha = fillOpacity;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawDieFaceGlyph(ctx: CanvasRenderingContext2D, face: DieFace) {
+  // Match DieFaceIcon's 32x32 SVG viewBox, scaled to the 128px texture.
+  ctx.save();
+  ctx.scale(4, 4);
+  ctx.strokeStyle = '#2a1606';
+  ctx.fillStyle = '#2a1606';
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  switch (face) {
+    case 'axe':
+      strokePath(ctx, () => {
+        ctx.moveTo(8, 20);
+        ctx.lineTo(22, 6);
+      });
+      fillStrokePath(ctx, 0.8, () => {
+        ctx.moveTo(18, 4);
+        ctx.bezierCurveTo(25, 4, 28, 9, 26, 15);
+        ctx.bezierCurveTo(22, 11, 17, 10, 15, 12);
+        ctx.closePath();
+      });
+      fillCircle(ctx, 8, 20, 1.4);
+      strokePath(ctx, () => {
+        ctx.moveTo(8, 20);
+        ctx.lineTo(6, 26);
+      });
+      break;
+    case 'arrow':
+      strokePath(ctx, () => {
+        ctx.moveTo(6, 26);
+        ctx.lineTo(26, 6);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(20, 6);
+        ctx.lineTo(26, 6);
+        ctx.lineTo(26, 12);
+      });
+      fillStrokePath(ctx, 0.7, () => {
+        ctx.moveTo(6, 26);
+        ctx.lineTo(10, 24);
+        ctx.lineTo(8, 28);
+        ctx.closePath();
+      });
+      break;
+    case 'helmet':
+      fillStrokePath(ctx, 0.15, () => {
+        ctx.moveTo(6, 18);
+        ctx.bezierCurveTo(6, 11, 10, 6, 16, 6);
+        ctx.bezierCurveTo(22, 6, 26, 11, 26, 18);
+        ctx.lineTo(26, 22);
+        ctx.lineTo(6, 22);
+        ctx.closePath();
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(16, 8);
+        ctx.lineTo(16, 22);
+      });
+      fillCircle(ctx, 11, 16, 1.1);
+      fillCircle(ctx, 21, 16, 1.1);
+      break;
+    case 'shield':
+      fillStrokePath(ctx, 0.15, () => {
+        ctx.moveTo(16, 5);
+        ctx.lineTo(26, 9);
+        ctx.lineTo(26, 17);
+        ctx.bezierCurveTo(26, 23, 21, 27, 16, 28);
+        ctx.bezierCurveTo(11, 27, 6, 23, 6, 17);
+        ctx.lineTo(6, 9);
+        ctx.closePath();
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(16, 5);
+        ctx.lineTo(16, 28);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(6, 14);
+        ctx.lineTo(26, 14);
+      });
+      break;
+    case 'steal':
+      ctx.beginPath();
+      ctx.arc(21, 12, 4, 0, Math.PI * 2);
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      ctx.fill();
+      ctx.restore();
+      ctx.stroke();
+      strokePath(ctx, () => {
+        ctx.moveTo(6, 24);
+        ctx.bezierCurveTo(8, 18, 12, 17, 17, 19);
+        ctx.bezierCurveTo(20, 20, 22, 22, 22, 25);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(9, 18);
+        ctx.lineTo(9, 13);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(12, 17);
+        ctx.lineTo(12, 11);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(15, 17);
+        ctx.lineTo(15, 12);
+      });
+      break;
+    case 'earn':
+      fillStrokePath(ctx, 0.2, () => {
+        ctx.moveTo(16, 5);
+        ctx.lineTo(26, 16);
+        ctx.lineTo(16, 27);
+        ctx.lineTo(6, 16);
+        ctx.closePath();
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(16, 9);
+        ctx.lineTo(16, 23);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(10, 16);
+        ctx.lineTo(22, 16);
+      });
+      strokePath(ctx, () => {
+        ctx.moveTo(13, 13);
+        ctx.lineTo(19, 19);
+      });
+      break;
+  }
+  ctx.restore();
+}
+
 // Generate a canvas texture for a dice face glyph (drawn over bone-white background).
 function makeFaceTexture(face: DieFace): THREE.Texture {
   const c = document.createElement('canvas');
@@ -18,71 +174,7 @@ function makeFaceTexture(face: DieFace): THREE.Texture {
   ctx.strokeStyle = 'rgba(40,20,8,0.45)';
   ctx.lineWidth = 4;
   ctx.strokeRect(4, 4, 120, 120);
-  // Glyph color
-  ctx.strokeStyle = '#2a1606';
-  ctx.fillStyle = 'rgba(42,22,6,0.35)';
-  ctx.lineWidth = 7;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.translate(64, 64);
-  ctx.scale(3.2, 3.2);
-  // Glyph drawn in a 16x16 grid centered at (0,0)
-  ctx.beginPath();
-  switch (face) {
-    case 'axe':
-      ctx.moveTo(-8, 8);
-      ctx.lineTo(6, -10);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(2, -12); ctx.bezierCurveTo(11, -12, 13, -5, 11, 1); ctx.bezierCurveTo(7, -3, 2, -4, 0, -2); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      break;
-    case 'arrow':
-      ctx.moveTo(-9, 9); ctx.lineTo(9, -9); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(2, -9); ctx.lineTo(9, -9); ctx.lineTo(9, -2); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-9, 9); ctx.lineTo(-5, 7); ctx.lineTo(-7, 11); ctx.closePath(); ctx.fill();
-      break;
-    case 'helmet':
-      ctx.moveTo(-9, 5); ctx.bezierCurveTo(-9, -4, -5, -10, 0, -10); ctx.bezierCurveTo(5, -10, 9, -4, 9, 5); ctx.lineTo(9, 8); ctx.lineTo(-9, 8); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(-4, 1, 1.1, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath();
-      ctx.arc(4, 1, 1.1, 0, Math.PI * 2); ctx.fill();
-      break;
-    case 'shield':
-      ctx.moveTo(0, -10); ctx.lineTo(9, -7); ctx.lineTo(9, 1); ctx.bezierCurveTo(9, 7, 5, 10, 0, 11); ctx.bezierCurveTo(-5, 10, -9, 7, -9, 1); ctx.lineTo(-9, -7); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -10); ctx.lineTo(0, 11); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-9, -2); ctx.lineTo(9, -2); ctx.stroke();
-      break;
-    case 'steal':
-      // hand+coin
-      ctx.arc(5, -4, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-9, 9); ctx.bezierCurveTo(-7, 2, -2, 1, 3, 3); ctx.bezierCurveTo(7, 4, 9, 7, 9, 10); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-6, -3); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-3, 1); ctx.lineTo(-3, -5); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(0, -4); ctx.stroke();
-      break;
-    case 'earn':
-      // diamond rune
-      ctx.moveTo(0, -10); ctx.lineTo(10, 0); ctx.lineTo(0, 10); ctx.lineTo(-10, 0); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-4, -4); ctx.lineTo(4, 4); ctx.stroke();
-      break;
-  }
+  drawDieFaceGlyph(ctx, face);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.needsUpdate = true;
@@ -107,10 +199,9 @@ function makeWoodTexture(dark = false): THREE.Texture {
   ctx.fillStyle = dark ? '#3a2315' : '#6b4a2c';
   ctx.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 220; i++) {
-    const shade = dark
+    ctx.strokeStyle = dark
       ? `rgba(${70 + Math.random() * 40},${35 + Math.random() * 20},${18 + Math.random() * 15},${0.3 + Math.random() * 0.35})`
       : `rgba(${140 + Math.random() * 60},${95 + Math.random() * 35},${55 + Math.random() * 25},${0.25 + Math.random() * 0.35})`;
-    ctx.strokeStyle = shade;
     ctx.lineWidth = 0.5 + Math.random() * 1.2;
     ctx.beginPath();
     const y = Math.random() * 256;
@@ -238,10 +329,19 @@ function BowlDie({ x, y, z, face, kept, rot }: { x: number; y: number; z: number
   );
 }
 
-export function Bowl({ player, x, z }: { player: PlayerState; x: number; z: number }) {
+export function Bowl({
+  player,
+  x,
+  z,
+  isDieVisible,
+}: {
+  player: PlayerState;
+  x: number;
+  z: number;
+  isDieVisible?: (die: PlayerState['dice'][number]) => boolean;
+}) {
   const tex = useMemo(() => makeWoodTexture(true), []);
-  // Arrange 6 dice inside the bowl in a 2x3 grid (only visible when not rolling and initial roll done)
-  const showDice = !player.rolling;
+  const lockedDice = player.dice.filter((d) => d.kept);
 
   return (
     <group position={[x, 0, z]}>
@@ -266,13 +366,25 @@ export function Bowl({ player, x, z }: { player: PlayerState; x: number; z: numb
         <meshStandardMaterial color="#6a4222" roughness={0.6} />
       </mesh>
       {/* 6 dice inside (2 rows of 3) - sit visible above bowl rim */}
-      {showDice && player.dice.map((d, i) => {
+      {player.dice.map((d, i) => {
+        if (d.kept) return null;
+        const visible = isDieVisible ? isDieVisible(d) : !player.rolling;
+        if (!visible) return null;
         const col = i % 3;
         const row = Math.floor(i / 3);
         const dx = (col - 1) * 0.42;
         const dz = (row - 0.5) * 0.42;
         const rot = ((d.id * 37) % 100) / 100 * 0.4 - 0.2;
-        return <BowlDie key={i} x={dx} y={0.95} z={dz} face={d.face} kept={d.kept} rot={rot} />;
+        return <BowlDie key={i} x={dx} y={0.95} z={dz} face={d.face} kept={d.kept || d.selected} rot={rot} />;
+      })}
+      {/* Locked dice are removed from the bowl and placed beside it, visible to both players. */}
+      {lockedDice.map((d, i) => {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const dx = 1.35 + col * 0.46;
+        const dz = (row - 0.5) * 0.46;
+        const rot = ((d.id * 53) % 100) / 100 * 0.35 - 0.18;
+        return <BowlDie key={`locked-${d.id}`} x={dx} y={0.24} z={dz} face={d.face} kept rot={rot} />;
       })}
     </group>
   );
