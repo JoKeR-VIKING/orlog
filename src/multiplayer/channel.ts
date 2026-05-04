@@ -153,10 +153,10 @@ function createLocalChannel(code: string): Channel {
     localStorage.setItem(storageKey, JSON.stringify(p));
   }
 
-  // Clean stale members (> 6s without heartbeat)
+  // Clean stale members (> 8s without heartbeat) - more aggressive for snappy reconnect detection
   function prune(p: LocalPresence) {
     const now = Date.now();
-    p.members = p.members.filter((m) => now - m.joinedAt < 60_000);
+    p.members = p.members.filter((m) => now - m.joinedAt < 8_000);
     return p;
   }
 
@@ -213,7 +213,7 @@ function createLocalChannel(code: string): Channel {
     write(r);
     bc.postMessage({ kind: 'presence' });
     emitPresence();
-  }, 2500);
+  }, 1500);
 
   // Storage events from other tabs
   const onStorage = (e: StorageEvent) => {

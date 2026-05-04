@@ -3,6 +3,103 @@ import { useSpring, animated } from '@react-spring/three';
 import * as THREE from 'three';
 import type { DieFace, PlayerState } from '../../game/types';
 
+// Generate a canvas texture for a dice face glyph (drawn over bone-white background).
+function makeFaceTexture(face: DieFace): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d')!;
+  // Aged bone background
+  const grd = ctx.createRadialGradient(64, 64, 8, 64, 64, 80);
+  grd.addColorStop(0, '#f0e2c0');
+  grd.addColorStop(1, '#bfae8b');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 128, 128);
+  // Subtle border
+  ctx.strokeStyle = 'rgba(40,20,8,0.45)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(4, 4, 120, 120);
+  // Glyph color
+  ctx.strokeStyle = '#2a1606';
+  ctx.fillStyle = 'rgba(42,22,6,0.35)';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.translate(64, 64);
+  ctx.scale(3.2, 3.2);
+  // Glyph drawn in a 16x16 grid centered at (0,0)
+  ctx.beginPath();
+  switch (face) {
+    case 'axe':
+      ctx.moveTo(-8, 8);
+      ctx.lineTo(6, -10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(2, -12); ctx.bezierCurveTo(11, -12, 13, -5, 11, 1); ctx.bezierCurveTo(7, -3, 2, -4, 0, -2); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'arrow':
+      ctx.moveTo(-9, 9); ctx.lineTo(9, -9); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(2, -9); ctx.lineTo(9, -9); ctx.lineTo(9, -2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-9, 9); ctx.lineTo(-5, 7); ctx.lineTo(-7, 11); ctx.closePath(); ctx.fill();
+      break;
+    case 'helmet':
+      ctx.moveTo(-9, 5); ctx.bezierCurveTo(-9, -4, -5, -10, 0, -10); ctx.bezierCurveTo(5, -10, 9, -4, 9, 5); ctx.lineTo(9, 8); ctx.lineTo(-9, 8); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-4, 1, 1.1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.arc(4, 1, 1.1, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'shield':
+      ctx.moveTo(0, -10); ctx.lineTo(9, -7); ctx.lineTo(9, 1); ctx.bezierCurveTo(9, 7, 5, 10, 0, 11); ctx.bezierCurveTo(-5, 10, -9, 7, -9, 1); ctx.lineTo(-9, -7); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -10); ctx.lineTo(0, 11); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-9, -2); ctx.lineTo(9, -2); ctx.stroke();
+      break;
+    case 'steal':
+      // hand+coin
+      ctx.arc(5, -4, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-9, 9); ctx.bezierCurveTo(-7, 2, -2, 1, 3, 3); ctx.bezierCurveTo(7, 4, 9, 7, 9, 10); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-6, -3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-3, 1); ctx.lineTo(-3, -5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(0, -4); ctx.stroke();
+      break;
+    case 'earn':
+      // diamond rune
+      ctx.moveTo(0, -10); ctx.lineTo(10, 0); ctx.lineTo(0, 10); ctx.lineTo(-10, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-4, -4); ctx.lineTo(4, 4); ctx.stroke();
+      break;
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.needsUpdate = true;
+  return t;
+}
+
+// Cache textures per face — generated once.
+const FACE_TEX_CACHE = new Map<DieFace, THREE.Texture>();
+function getFaceTexture(face: DieFace): THREE.Texture {
+  let t = FACE_TEX_CACHE.get(face);
+  if (!t) {
+    t = makeFaceTexture(face);
+    FACE_TEX_CACHE.set(face, t);
+  }
+  return t;
+}
+
 function makeWoodTexture(dark = false): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
@@ -98,16 +195,45 @@ export function Table() {
 }
 
 // A single die inside the bowl — just a small colored cube showing the rolled face color.
+// A single die inside the bowl — top face has glyph texture, sides colored.
 function BowlDie({ x, y, z, face, kept, rot }: { x: number; y: number; z: number; face: DieFace; kept: boolean; rot: number }) {
+  const topTex = getFaceTexture(face);
+  const sideColor = faceColor(face);
+  const emissiveColor = kept ? '#c68234' : '#000000';
+  const emissiveSide = kept ? 0.5 : 0.05;
+  const emissiveTop = kept ? 0.45 : 0.05;
+  const size = kept ? 0.42 : 0.4;
+
+  const materials = useMemo(() => {
+    const sideMat = new THREE.MeshStandardMaterial({
+      color: sideColor,
+      emissive: new THREE.Color(emissiveColor),
+      emissiveIntensity: emissiveSide,
+      roughness: 0.55,
+      metalness: 0.05,
+    });
+    const topMat = new THREE.MeshStandardMaterial({
+      map: topTex,
+      emissive: new THREE.Color(emissiveColor),
+      emissiveIntensity: emissiveTop,
+      roughness: 0.5,
+      metalness: 0.0,
+    });
+    // Order: +X, -X, +Y(top), -Y(bottom), +Z, -Z
+    return [
+      sideMat.clone(),
+      sideMat.clone(),
+      topMat,
+      sideMat.clone(),
+      sideMat.clone(),
+      sideMat.clone(),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sideColor, topTex, kept]);
+
   return (
-    <mesh position={[x, y, z]} rotation-y={rot}>
-      <boxGeometry args={[0.18, 0.18, 0.18]} />
-      <meshStandardMaterial
-        color={faceColor(face)}
-        emissive={kept ? '#c68234' : '#000000'}
-        emissiveIntensity={kept ? 0.45 : 0}
-        roughness={0.6}
-      />
+    <mesh position={[x, y, z]} rotation-y={rot} material={materials}>
+      <boxGeometry args={[size, size, size]} />
     </mesh>
   );
 }
@@ -139,14 +265,14 @@ export function Bowl({ player, x, z }: { player: PlayerState; x: number; z: numb
         <ringGeometry args={[0.78, 0.95, 36]} />
         <meshStandardMaterial color="#6a4222" roughness={0.6} />
       </mesh>
-      {/* 6 dice inside */}
+      {/* 6 dice inside (2 rows of 3) - sit visible above bowl rim */}
       {showDice && player.dice.map((d, i) => {
         const col = i % 3;
         const row = Math.floor(i / 3);
-        const dx = (col - 1) * 0.3;
-        const dz = (row - 0.5) * 0.3;
-        const rot = ((d.id * 37) % 100) / 100 * 0.4;
-        return <BowlDie key={i} x={dx} y={0.38} z={dz} face={d.face} kept={d.kept} rot={rot} />;
+        const dx = (col - 1) * 0.42;
+        const dz = (row - 0.5) * 0.42;
+        const rot = ((d.id * 37) % 100) / 100 * 0.4 - 0.2;
+        return <BowlDie key={i} x={dx} y={0.95} z={dz} face={d.face} kept={d.kept} rot={rot} />;
       })}
     </group>
   );

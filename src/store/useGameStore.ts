@@ -1,6 +1,6 @@
 // Central Zustand store for session + game state.
-// Host is authoritative: mutates snapshot, broadcasts full snapshot after each phase change.
-// Guest sends player actions; host applies them and rebroadcasts the updated snapshot.
+// Host is authoritative. Guest sends actions over the channel; host applies and rebroadcasts.
+// Also supports single-player solo mode where an AI controls the guest side locally.
 
 import { create } from 'zustand';
 import {
@@ -18,6 +18,9 @@ import { randomCode, randomSeed } from '../game/rng';
 import type { Channel, PresenceInfo } from '../multiplayer/channel';
 import { createChannel } from '../multiplayer/channel';
 import { audio } from '../audio/sounds';
+import type { Difficulty } from '../ai/orlogAI';
+import { aiDelay, generatePlayerActions } from '../ai/orlogAI';
+import { clearUrlSession, writeUrlSession } from '../utils/sessionHash';
 
 type View = 'home' | 'lobby' | 'game' | 'end';
 
@@ -28,16 +31,15 @@ export interface ConnectionState {
   selfSide: PlayerSide | null;
   presence: PresenceInfo | null;
   opponentPresent: boolean;
+  opponentLastSeen: number; // timestamp ms when opponent was last confirmed present
   nameInput: string;
   soundOn: boolean;
   ambientOn: boolean;
   error: string | null;
+  aiMode: Difficulty | null; // when non-null, playing solo vs AI
 }
 
 export interface AnimationState {
-  rolling: boolean; // local "cup covers + shake" animation flag for the side currently rolling
-  rollingSide: PlayerSide | null;
-  revealingSide: PlayerSide | null;
   floaters: { id: number; side: PlayerSide; text: string; kind: 'dmg' | 'heal' | 'favor' }[];
 }
 
@@ -47,6 +49,7 @@ export interface Store extends ConnectionState, AnimationState {
   setName: (name: string) => void;
   hostSession: () => void;
   joinSession: (code: string) => void;
+  hostSoloSession: (difficulty: Difficulty) => void;
   leave: () => void;
   toggleSound: () => void;
   toggleAmbient: () => void;
@@ -87,7 +90,6 @@ function hostInitialRoll(get: () => Store, set: (partial: Partial<Store> | ((s: 
   const hostFaces = rollSix(seed, 'host');
   const guestFaces = rollSix(seed, 'guest');
 
-  // Animate: set rolling flags on both, delay reveal
   snap.host.rolling = true;
   snap.guest.rolling = true;
   set({ snap: structuredClone(snap) });
@@ -106,6 +108,8 @@ function hostInitialRoll(get: () => Store, set: (partial: Partial<Store> | ((s: 
     set({ snap: structuredClone(s2) });
     broadcastSnapshot(get);
     audio.play('diceReveal');
+    // trigger AI to act if needed
+    maybeScheduleAi(get, set);
   }, 1400);
 }
 
@@ -131,8 +135,8 @@ function hostReroll(get: () => Store, set: (partial: Partial<Store> | ((s: Store
     set({ snap: structuredClone(s2) });
     broadcastSnapshot(get);
     audio.play('diceReveal');
-    // if both ready, advance to favor
     maybeAdvancePhase(get, set);
+    maybeScheduleAi(get, set);
   }, 1400);
 }
 
@@ -145,13 +149,13 @@ function maybeAdvancePhase(get: () => Store, set: (partial: Partial<Store> | ((s
     set({ snap: structuredClone(snap) });
     broadcastSnapshot(get);
     audio.play('horn');
+    maybeScheduleAi(get, set);
   } else if (snap.phase === 'favor' && snap.host.favorReady && snap.guest.favorReady) {
     snap.phase = 'resolve';
     set({ snap: structuredClone(snap) });
     broadcastSnapshot(get);
     const report = resolveRound(snap);
     snap.log = [...snap.log.slice(-20), ...report.log];
-    // Animate floaters
     if (report.host.damageTaken > 0) addFloater(set, 'host', `-${report.host.damageTaken}`, 'dmg');
     if (report.guest.damageTaken > 0) addFloater(set, 'guest', `-${report.guest.damageTaken}`, 'dmg');
     if (report.host.healed > 0) addFloater(set, 'host', `+${report.host.healed}`, 'heal');
@@ -179,7 +183,6 @@ function maybeAdvancePhase(get: () => Store, set: (partial: Partial<Store> | ((s
         beginNextRound(s2);
         set({ snap: structuredClone(s2) });
         broadcastSnapshot(get);
-        // auto-start next roll by host
         setTimeout(() => {
           hostInitialRoll(get, set);
         }, 900);
@@ -188,7 +191,53 @@ function maybeAdvancePhase(get: () => Store, set: (partial: Partial<Store> | ((s
   }
 }
 
-// Host applies a PlayerAction sent by a guest (or locally from itself)
+// ---- AI scheduling ----
+// Called whenever game state advances. If aiMode is set, plans guest actions.
+function maybeScheduleAi(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void) {
+  const { aiMode, snap, selfSide } = get();
+  if (!aiMode) return;
+  if (selfSide !== 'host') return; // AI runs on host only
+  if (snap.phase !== 'roll' && snap.phase !== 'favor') return;
+  if (snap.guest.rolling) return;
+  if (snap.phase === 'roll' && snap.guest.ready) return;
+  if (snap.phase === 'favor' && snap.guest.favorReady) return;
+
+  // Plan a sequence of actions for the AI guest
+  const actions = generatePlayerActions(snap, 'guest', aiMode);
+  if (actions.length === 0) return;
+  runAiActions(get, set, actions);
+}
+
+function runAiActions(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+  actions: PlayerAction[],
+) {
+  const { aiMode } = get();
+  if (!aiMode) return;
+  let i = 0;
+  const step = () => {
+    if (!get().aiMode) return;
+    if (i >= actions.length) return;
+    // Stop if game state moved to a phase this sequence no longer applies to
+    const s = get();
+    const act = actions[i++];
+    const phase = s.snap.phase;
+    const g = s.snap.guest;
+    if (act.kind === 'toggle_keep' || act.kind === 'reroll' || act.kind === 'stand') {
+      if (phase !== 'roll' || g.rolling || g.ready) return;
+    }
+    if (act.kind === 'cast_favor' || act.kind === 'skip_favors') {
+      if (phase !== 'favor' || g.favorReady) return;
+    }
+    applyAction(get, set, 'guest', act);
+    const nextDelay = i < actions.length ? aiDelay(aiMode, 'act') : 0;
+    if (i < actions.length) setTimeout(step, nextDelay);
+  };
+  setTimeout(step, aiDelay(aiMode, 'think'));
+}
+
+// Host applies a PlayerAction sent by a guest (or locally)
 function applyAction(
   get: () => Store,
   set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
@@ -252,7 +301,6 @@ function applyAction(
     case 'rematch_request': {
       if (snap.phase !== 'game-over') break;
       if (snap.rematchRequest && snap.rematchRequest !== side) {
-        // Both agreed — reset
         const reset = freshSnapshot(snap.host.name, snap.guest.name);
         set({ snap: reset, view: 'game', floaters: [] });
         broadcastSnapshot(get);
@@ -261,6 +309,10 @@ function applyAction(
         snap.rematchRequest = side;
         set({ snap: structuredClone(snap) });
         broadcastSnapshot(get);
+        // In solo mode, auto-accept rematch on next tick
+        if (get().aiMode && side === 'host') {
+          setTimeout(() => applyAction(get, set, 'guest', { kind: 'rematch_request' }), 400);
+        }
       }
       break;
     }
@@ -268,28 +320,23 @@ function applyAction(
 }
 
 export const useStore = create<Store>((set, get) => ({
-  // connection
   code: null,
   view: 'home',
   channel: null,
   selfSide: null,
   presence: null,
   opponentPresent: false,
+  opponentLastSeen: 0,
   nameInput: '',
   soundOn: true,
   ambientOn: false,
   error: null,
-  // animation
-  rolling: false,
-  rollingSide: null,
-  revealingSide: null,
+  aiMode: null,
   floaters: [],
-  // game
   snap: freshSnapshot(),
 
   setName: (name) => {
     set({ nameInput: name });
-    // propagate via action if we're in a session
     const { channel, selfSide } = get();
     if (channel && selfSide) {
       const action: PlayerAction = { kind: 'set_name', name };
@@ -304,7 +351,7 @@ export const useStore = create<Store>((set, get) => ({
   hostSession: () => {
     const code = randomCode(6);
     const name = get().nameInput || 'Viking';
-    openSession(get, set, code, name);
+    openSession(get, set, code, name, null);
   },
 
   joinSession: (code) => {
@@ -314,18 +361,26 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     const name = get().nameInput || 'Warrior';
-    openSession(get, set, clean, name);
+    openSession(get, set, clean, name, null);
+  },
+
+  hostSoloSession: (difficulty) => {
+    const name = get().nameInput || 'Viking';
+    openSoloSession(get, set, name, difficulty);
   },
 
   leave: () => {
     const ch = get().channel;
     if (ch) ch.leave();
+    clearUrlSession();
     set({
       channel: null,
       code: null,
       selfSide: null,
       presence: null,
       opponentPresent: false,
+      opponentLastSeen: 0,
+      aiMode: null,
       view: 'home',
       snap: freshSnapshot(),
       floaters: [],
@@ -350,7 +405,6 @@ export const useStore = create<Store>((set, get) => ({
     set({ ambientOn: next });
   },
 
-  // Player actions (route host->local; guest->network)
   toggleKeep: (dieId) => {
     const { selfSide, channel } = get();
     if (!selfSide || !channel) return;
@@ -402,13 +456,14 @@ export const useStore = create<Store>((set, get) => ({
   backToHome: () => get().leave(),
 }));
 
+// ---- Multiplayer session ----
 function openSession(
   get: () => Store,
   set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
   code: string,
   name: string,
+  ai: Difficulty | null,
 ) {
-  // Close existing
   const prev = get().channel;
   if (prev) prev.leave();
 
@@ -421,23 +476,28 @@ function openSession(
     selfSide: null,
     presence: channel.presence(),
     opponentPresent: false,
+    opponentLastSeen: Date.now(),
+    aiMode: ai,
     error: null,
     snap: freshSnapshot(name, name === 'Host' ? 'Guest' : 'Opponent'),
     floaters: [],
   });
-  // Start ambient if user enabled
+  writeUrlSession({ code, ai: null });
   if (get().ambientOn) audio.toggleAmbient(true);
 
   const presOff = channel.onPresence((pres) => {
     const selfSide = channel.side();
     const full = pres.full;
-    set({ presence: pres, selfSide, opponentPresent: full });
+    set((s) => ({
+      presence: pres,
+      selfSide,
+      opponentPresent: full,
+      opponentLastSeen: full ? Date.now() : s.opponentLastSeen,
+    }));
 
-    // When session fills up, set names and view=game if host
     if (selfSide === 'host' && full && get().view === 'lobby') {
       const snap = get().snap;
       snap.host.name = name;
-      // Move to game, host starts initial roll
       set({ view: 'game', snap: structuredClone(snap) });
       broadcastSnapshot(get);
       audio.play('horn');
@@ -445,18 +505,14 @@ function openSession(
     }
   });
 
-  // Announce hello once joined (with our chosen name)
-  // Small retry loop until selfSide is known
   let hellos = 0;
   const helloTimer = setInterval(() => {
     const sSide = channel.side();
     if (sSide) {
       channel.send({ type: 'hello', side: sSide, name });
-      // Guest: also send set_name action to host
       if (sSide === 'guest') {
         channel.send({ type: 'action', side: 'guest', action: { kind: 'set_name', name } });
       } else {
-        // host sets own name locally
         const snap = get().snap;
         snap.host.name = name;
         set({ snap: structuredClone(snap) });
@@ -470,24 +526,18 @@ function openSession(
   const msgOff = channel.onMessage((msg) => {
     const selfSide = channel.side();
     if (!selfSide) return;
-
     switch (msg.type) {
       case 'state': {
-        // Guest accepts host state
         if (selfSide === 'guest') {
           set({ snap: msg.snapshot, view: msg.snapshot.phase === 'game-over' ? 'end' : 'game' });
         }
         break;
       }
       case 'action': {
-        // Only host applies actions
-        if (selfSide === 'host') {
-          applyAction(get, set, msg.side, msg.action);
-        }
+        if (selfSide === 'host') applyAction(get, set, msg.side, msg.action);
         break;
       }
       case 'hello': {
-        // Host updates opponent name
         if (selfSide === 'host' && msg.side === 'guest') {
           const snap = get().snap;
           snap.guest.name = msg.name.slice(0, 24) || 'Guest';
@@ -501,7 +551,6 @@ function openSession(
     }
   });
 
-  // cleanup hook stored on channel (fires on leave)
   const origLeave = channel.leave.bind(channel);
   channel.leave = () => {
     presOff();
@@ -510,5 +559,47 @@ function openSession(
   };
 }
 
-// expose constants for components
+// ---- Solo (vs AI) session ----
+function openSoloSession(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+  name: string,
+  difficulty: Difficulty,
+) {
+  const prev = get().channel;
+  if (prev) prev.leave();
+
+  // Create a mock "channel" that is host-only (no actual network) so host code paths work.
+  const mockChannel: Channel = {
+    code: 'SOLO',
+    selfId: 'local',
+    isSupabase: false,
+    side: () => 'host',
+    presence: () => ({ hostId: 'local', guestId: 'ai', self: 'local', selfSide: 'host', full: true }),
+    send: () => {},
+    onMessage: () => () => {},
+    onPresence: (h) => { h({ hostId: 'local', guestId: 'ai', self: 'local', selfSide: 'host', full: true }); return () => {}; },
+    leave: () => {},
+  };
+
+  const aiName = difficulty === 'skald' ? 'Skald' : difficulty === 'vikingr' ? 'Vikingr' : 'Berserkr';
+  set({
+    channel: mockChannel,
+    code: null,
+    view: 'game',
+    selfSide: 'host',
+    presence: mockChannel.presence(),
+    opponentPresent: true,
+    opponentLastSeen: Date.now(),
+    aiMode: difficulty,
+    error: null,
+    snap: freshSnapshot(name, aiName),
+    floaters: [],
+  });
+  writeUrlSession({ code: null, ai: difficulty });
+  if (get().ambientOn) audio.toggleAmbient(true);
+  audio.play('horn');
+  setTimeout(() => hostInitialRoll(get, set), 700);
+}
+
 export { MAX_REROLLS };

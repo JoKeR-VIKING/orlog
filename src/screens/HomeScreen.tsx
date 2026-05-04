@@ -2,22 +2,34 @@ import { useEffect, useState } from 'react';
 import { useStore } from '../store/useGameStore';
 import { WoodenButton } from '../components/ui/WoodenButton';
 import { isRealSupabase } from '../multiplayer/channel';
+import type { Difficulty } from '../ai/orlogAI';
+import { DIFFICULTY_LABEL, DIFFICULTY_SUBTITLE } from '../ai/orlogAI';
+import { readUrlSession } from '../utils/sessionHash';
+
+const DIFFS: Difficulty[] = ['skald', 'vikingr', 'berserkr'];
 
 export default function HomeScreen() {
   const nameInput = useStore((s) => s.nameInput);
   const setName = useStore((s) => s.setName);
   const hostSession = useStore((s) => s.hostSession);
   const joinSession = useStore((s) => s.joinSession);
+  const hostSoloSession = useStore((s) => s.hostSoloSession);
   const soundOn = useStore((s) => s.soundOn);
   const toggleSound = useStore((s) => s.toggleSound);
   const ambientOn = useStore((s) => s.ambientOn);
   const toggleAmbient = useStore((s) => s.toggleAmbient);
   const error = useStore((s) => s.error);
-  const [code, setCode] = useState('');
-  const [showJoin, setShowJoin] = useState(false);
+  // On mount, if URL hash has a code, prefill join input
+  const initial = useState(() => {
+    const url = readUrlSession();
+    return url;
+  })[0];
+  const [code, setCode] = useState(initial.code || '');
+  const [mode, setMode] = useState<'idle' | 'join' | 'solo'>(
+    initial.code ? 'join' : initial.ai ? 'solo' : 'idle',
+  );
 
   useEffect(() => {
-    // Lock name default
     if (!nameInput) setName('Viking');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -25,7 +37,6 @@ export default function HomeScreen() {
   return (
     <div className="relative w-full h-full overflow-auto">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-10 md:gap-14 items-center min-h-full">
-        {/* Left: Title + CTAs */}
         <div className="fade-up">
           <div className="rune-divider text-sm mb-4">
             <span>ᛟ ᚱ ᛚ ᛟ ᚷ</span>
@@ -65,7 +76,7 @@ export default function HomeScreen() {
                 Forge a New Saga
               </WoodenButton>
               <WoodenButton
-                onClick={() => setShowJoin((v) => !v)}
+                onClick={() => setMode((m) => (m === 'join' ? 'idle' : 'join'))}
                 className="flex-1"
                 data-testid="toggle-join-button"
               >
@@ -73,18 +84,29 @@ export default function HomeScreen() {
               </WoodenButton>
             </div>
 
-            {showJoin && (
+            <div className="flex flex-col sm:flex-row gap-3 mt-3">
+              <WoodenButton
+                variant="gold"
+                onClick={() => setMode((m) => (m === 'solo' ? 'idle' : 'solo'))}
+                className="flex-1"
+                data-testid="toggle-solo-button"
+              >
+                Play Vs the Æsir (Solo)
+              </WoodenButton>
+            </div>
+
+            {mode === 'join' && (
               <div className="mt-5 fade-up">
                 <label className="block text-xs md:text-sm uppercase tracking-widest text-[#3a2a18] mb-2">
-                  Session Rune (6 characters)
+                  Session Rune (4-8 characters)
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+                    onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 8))}
                     placeholder="ABCD23"
-                    maxLength={6}
+                    maxLength={8}
                     className="code-input flex-1"
                     data-testid="join-session-input"
                   />
@@ -102,6 +124,42 @@ export default function HomeScreen() {
                     {error}
                   </div>
                 )}
+              </div>
+            )}
+
+            {mode === 'solo' && (
+              <div className="mt-5 fade-up">
+                <label className="block text-xs md:text-sm uppercase tracking-widest text-[#3a2a18] mb-3">
+                  Choose a Worthy Foe
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {DIFFS.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => hostSoloSession(d)}
+                      className="text-left bg-[#1a1412] hover:bg-[#251c19] border-2 border-[#4a3525] hover:border-[var(--color-gold)] rounded-sm px-4 py-3 transition-all"
+                      data-testid={`difficulty-${d}-button`}
+                      style={{ boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4)' }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="rune-title text-2xl text-[var(--color-gold)] w-7 text-center">
+                            {i === 0 ? 'ᛋ' : i === 1 ? 'ᚢ' : 'ᛒ'}
+                          </span>
+                          <div>
+                            <div className="heading-carved text-base text-[var(--color-text-primary)]">
+                              {DIFFICULTY_LABEL[d]}
+                            </div>
+                            <div className="text-xs italic text-[var(--color-text-secondary)] leading-snug">
+                              {DIFFICULTY_SUBTITLE[d]}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-[var(--color-gold)] text-xl">›</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -125,12 +183,11 @@ export default function HomeScreen() {
 
           {!isRealSupabase() && (
             <p className="mt-5 text-xs text-[var(--color-text-secondary)] italic max-w-lg" data-testid="local-mode-notice">
-              &#9888; Running in local mode (no live Supabase keys). Open a second browser tab with the same session rune to play yourself, or swap in real keys in <code className="text-[var(--color-gold)]">.env</code> for real multiplayer.
+              &#9888; Multiplayer running in local mode (no live Supabase keys). Open a second tab to play yourself, or pick "Play Vs the Æsir" for solo.
             </p>
           )}
         </div>
 
-        {/* Right: decorative rune panel */}
         <div className="hidden md:block fade-up" style={{ animationDelay: '0.15s' }}>
           <div className="wood-panel p-8 relative overflow-hidden">
             <div className="absolute inset-0 pointer-events-none opacity-30"

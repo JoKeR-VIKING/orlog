@@ -4,7 +4,7 @@ import { PlayerHUD } from '../components/ui/PlayerHUD';
 import { GodFavorPanel } from '../components/ui/GodFavorPanel';
 import { DieFaceIcon } from '../components/ui/DieFaceIcon';
 import GameScene from '../scenes/GameScene';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 function phaseLabel(phase: string) {
   switch (phase) {
@@ -35,18 +35,32 @@ export default function GameScreen() {
   const castFavor = useStore((s) => s.castFavor);
   const skipFavors = useStore((s) => s.skipFavors);
   const code = useStore((s) => s.code);
+  const aiMode = useStore((s) => s.aiMode);
+  const opponentLastSeen = useStore((s) => s.opponentLastSeen);
 
   const log = useMemo(() => snap.log.slice(-6), [snap.log]);
+
+  // Tick every 500ms to update reconnect countdown UI
+  const [now, setNow] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
 
   if (!selfSide) return null;
   const self = snap[selfSide];
   const opponent = snap[selfSide === 'host' ? 'guest' : 'host'];
 
-  // roll phase state
   const canRoll =
     snap.phase === 'roll' && !self.rolling && !self.ready && self.rollsLeft > 0;
   const canStand = snap.phase === 'roll' && !self.rolling;
   const canFavor = snap.phase === 'favor' && !self.favorReady;
+
+  // Reconnect timer (only relevant in non-solo mode)
+  const showReconnect = !aiMode && !opponentPresent && snap.phase !== 'game-over';
+  const sinceLastSeen = showReconnect ? Math.max(0, now - (opponentLastSeen || now)) : 0;
+  const reconnectSecondsLeft = Math.max(0, Math.ceil((45_000 - sinceLastSeen) / 1000));
+  const reconnectTimedOut = showReconnect && reconnectSecondsLeft <= 0;
 
   return (
     <div className="w-full h-full relative overflow-hidden" data-testid="game-screen">
@@ -91,10 +105,22 @@ export default function GameScreen() {
             Round {snap.round} &middot; {phaseLabel(snap.phase)}
           </span>
         </div>
-        {!opponentPresent && snap.phase !== 'game-over' && (
-          <div className="mt-2 parchment px-3 py-1 text-xs md:text-sm text-[#8b261d] tracking-wider"
-            data-testid="opponent-disconnected">
-            Opponent disconnected... awaiting return
+        {!opponentPresent && snap.phase !== 'game-over' && !aiMode && (
+          <div className={`mt-2 parchment px-4 py-2 text-xs md:text-sm tracking-wider ${reconnectTimedOut ? 'text-[#8b261d]' : 'text-[#3a2a18]'}`}
+            data-testid="opponent-disconnected" style={{ pointerEvents: 'auto' }}>
+            {reconnectTimedOut ? (
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <span className="heading-carved text-[#8b261d]">The foe has fled the field.</span>
+                <WoodenButton variant="gold" onClick={leave} data-testid="abandon-session-button">
+                  End Saga
+                </WoodenButton>
+              </div>
+            ) : (
+              <span>
+                <span className="rune-title text-base mr-2">ᚺ</span>
+                Opponent reconnecting&hellip; <span className="text-[#8b261d] font-bold">{reconnectSecondsLeft}s</span>
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -222,6 +248,11 @@ export default function GameScreen() {
       {code && (
         <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-[var(--color-text-secondary)]/60">
           Rune: <span className="text-[var(--color-gold)] font-bold">{code}</span>
+        </div>
+      )}
+      {aiMode && (
+        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-[var(--color-text-secondary)]/70" data-testid="solo-mode-badge">
+          Vs <span className="text-[var(--color-gold)] font-bold">{aiMode === 'skald' ? 'Skald' : aiMode === 'vikingr' ? 'Vikingr' : 'Berserkr'}</span>
         </div>
       )}
     </div>

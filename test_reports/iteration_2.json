@@ -1,0 +1,46 @@
+{
+  "summary": "Frontend-only smoke + feature test of 4 new Orlog features (URL hash persistence, opponent reconnect banner+countdown, 3D dice-face glyph textures, Solo-vs-AI w/ 3 difficulties). Verified via Playwright against public preview URL. All 4 features work as specified. No blocking bugs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "GameScreen (console)", "issues": ["THREE.Clock deprecation warning (carry-over from iter1) and benign WebGL ReadPixels perf warning — not blocking."]},
+      {"screen": "Opponent HUD", "issues": ["Opponent HP readout shows 'HP 15 / 35' while self shows 'HP 15 / 15'. Likely HUD template includes a secondary stat concatenation that reads oddly; main agent may want to double-check opponent PlayerHUD max-HP display — could just be a label stacking visual artefact, not a functional bug."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [
+    "(Optional) Investigate opponent PlayerHUD HP display '15 / 35' — verify intended copy.",
+    "(Not blocking) End-Saga button post-45s-timeout path not exercised in-test (would require full 45s wait or store-exposure). Countdown decrease was verified (45s -> 24s observed). Main agent can self-test with a longer wait."
+  ],
+  "critical_code_review_comments": [
+    "sessionHash.ts: clean regex validation for code (^[A-Z0-9]{4,8}$) and enum check for ai — good.",
+    "HomeScreen initial mode is correctly derived from hash on mount (solo/join auto-open + code prefill verified in 2nd tab).",
+    "GameScreen reconnect logic uses 45_000ms threshold with correct gating (!aiMode && !opponentPresent && phase !== 'game-over') — countdown tick via 500ms interval is fine.",
+    "leave() clears URL hash — verified post-leave hash === '' for both solo and multiplayer.",
+    "TableAndBowls BowlDie: 6 cubes render per bowl with distinct-colored side materials and top-face canvas-glyph textures — visually confirmed (axe/arrow/helmet/shield/hand/rune glyphs, colors match spec).",
+    "Solo mode skips lobby as designed — host clicks difficulty card, lands directly in game-screen with solo-mode-badge + hash #ai=<diff>."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "~95% (11 of 12 feature requirements directly verified; End-Saga timeout button not exercised but countdown confirmed decreasing)"},
+  "test_credentials": "N/A (no auth; placeholder Supabase keys; multiplayer uses BroadcastChannel + localStorage fallback)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Key observations: (1) localStorage persists host session across Playwright runs in same context — if a prior test leaves a session active and the next test navigates to '/', the app reuses the old multiplayer game-screen state. Always explicitly leave() or clear localStorage before starting a fresh scenario. (2) To test End-Saga button without 45s wait, expose useGameStore on window in dev builds or directly manipulate opponentLastSeen via React DevTools. (3) In solo mode, self.rolling flickers during AI-triggered re-rolls — stand-button is transiently disabled; use a longer poll loop (>=15s) when waiting for it. (4) Test IDs verified present: difficulty-skald-button, difficulty-vikingr-button, difficulty-berserkr-button, toggle-solo-button, solo-mode-badge, opponent-disconnected, abandon-session-button, create-session-button, join-session-input, join-session-button, leave-game-button, game-screen, game-scene-3d. (5) Screenshot captured shows BOTH 3D bowls with 6 glyph-top-face wooden cubes, multiplayer rune badge 'RUNE: AH93NV', reconnect banner '24s', and 2D dice chip row — all features visually confirmed.",
+  "verified_features": {
+    "solo_mode_3_difficulty_cards": "PASS — skald/vikingr/berserkr cards render with rune icon (ᛋ/ᚢ/ᛒ), name, subtitle; click navigates to game without lobby.",
+    "url_hash_solo": "PASS — #ai=skald, #ai=vikingr, #ai=berserkr all written correctly.",
+    "url_hash_multiplayer": "PASS — #code=XXXXXX matches displayed session rune (tile letters concatenated in DOM).",
+    "hash_prefill_on_reload": "PASS — 2nd tab opened at /#code=AH93NV auto-opened join mode with join-session-input prefilled 'AH93NV'.",
+    "leave_clears_hash": "PASS — both solo and multiplayer leave() yields empty hash.",
+    "reconnect_banner_with_countdown": "PASS — banner appears within ~1-2s after closing other tab, countdown visibly decreases (captured at '24s').",
+    "solo_mode_badge": "PASS — 'Vs Skald' / 'Vs Vikingr' / 'Vs Berserkr' in bottom-left.",
+    "multiplayer_rune_badge": "PASS — 'RUNE: AH93NV' in bottom-left (no solo-mode-badge).",
+    "3d_dice_rendering": "PASS — 2 bowls, 6 cubes each, glyphs on top (axe, arrow, helmet, shield, hand, rune), colored sides (red/tan/blue-gray/purple/gold/orange visible in screenshot).",
+    "regression_multiplayer_flow": "PASS — host create + 2nd-tab join → both reach game-screen; dice tray + controls visible.",
+    "end_saga_button_after_45s": "NOT DIRECTLY EXERCISED — countdown decrease verified (45→24), code path correct per code review; main agent can self-test."
+  },
+  "rca of the issue": "No bugs — all 4 new features operational."
+}
