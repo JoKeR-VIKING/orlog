@@ -12,6 +12,27 @@ export default function EndScreen() {
   const youWon = snap.winner === selfSide;
   const pendingRematch = snap.rematchRequest;
   const youAsked = pendingRematch === selfSide;
+  const endKind = snap.endReason?.kind || 'normal';
+  const endedByForfeit = endKind === 'forfeit';
+  const endedByFled = endKind === 'fled';
+  const hideRematch = endedByForfeit || endedByFled;
+  const opponentSide = selfSide === 'host' ? 'guest' : 'host';
+  const opponentName = snap[opponentSide].name || 'Opponent';
+
+  const resultTitle = endedByForfeit
+    ? youWon ? 'Victory by Forfeit' : 'Forfeit'
+    : endedByFled
+      ? 'Opponent Fled'
+      : youWon ? 'Victory' : 'Defeat';
+  const resultCopy = endedByForfeit
+    ? youWon
+      ? `${opponentName} yielded the saga.`
+      : 'You yielded the saga.'
+    : endedByFled
+      ? `${opponentName} fled the field. Victory is yours.`
+      : youWon
+        ? 'The Norns have carved glory into your thread.'
+        : 'Another saga begins in Valhalla. Rise once more.';
 
   return (
     <div className="w-full h-full overflow-auto flex items-center justify-center p-6">
@@ -27,29 +48,29 @@ export default function EndScreen() {
           }`}
           data-testid="end-result"
         >
-          {youWon ? 'Victory' : 'Defeat'}
+          {resultTitle}
         </h1>
         <p className="mt-3 text-[var(--color-text-secondary)] italic">
-          {youWon
-            ? 'The Norns have carved glory into your thread.'
-            : 'Another saga begins in Valhalla. Rise once more.'}
+          {resultCopy}
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <WoodenButton
-            variant="primary"
-            onClick={requestRematch}
-            disabled={youAsked}
-            data-testid="rematch-button"
-          >
-            {youAsked ? 'Waiting on Foe...' : pendingRematch ? 'Accept Rematch' : 'Rematch'}
-          </WoodenButton>
+          {!hideRematch && (
+            <WoodenButton
+              variant="primary"
+              onClick={requestRematch}
+              disabled={youAsked}
+              data-testid="rematch-button"
+            >
+              {youAsked ? 'Waiting on Foe...' : pendingRematch ? 'Accept Rematch' : 'Rematch'}
+            </WoodenButton>
+          )}
           <WoodenButton variant="gold" onClick={leave} data-testid="home-button">
             Back to Mead Hall
           </WoodenButton>
         </div>
 
-        {pendingRematch && !youAsked && (
+        {!hideRematch && pendingRematch && !youAsked && (
           <p className="mt-4 text-sm text-[var(--color-gold)] italic">
             Your foe wants another round!
           </p>

@@ -1,7 +1,19 @@
-import { Canvas } from '@react-three/fiber';
+import { useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { ResolutionAnimation } from '../components/scene/ResolutionAnimation';
 import { Bowl, Cup, Table } from '../components/scene/TableAndBowls';
 import { MAX_ROLLS, useStore } from '../store/useGameStore';
 import type { Die, PlayerSide } from '../game/types';
+
+function CameraRig() {
+  const camera = useThree((state) => state.camera);
+  useEffect(() => {
+    camera.position.set(0, 13, 12);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera]);
+  return null;
+}
 
 export default function GameScene() {
   const snap = useStore((s) => s.snap);
@@ -35,9 +47,18 @@ export default function GameScene() {
       <directionalLight position={[-7, 9, -5]} intensity={0.7} color="#c4a878" />
       <directionalLight position={[0, 15, 0]} intensity={0.7} color="#ffe8b8" />
       <pointLight position={[0, 4, 0]} intensity={1.0} color="#c68234" distance={14} />
+      <CameraRig />
       <Table />
       <Bowl player={snap.host} x={0} z={hostZ} isDieVisible={(die) => isDieVisible('host', die)} />
       <Bowl player={snap.guest} x={0} z={guestZ} isDieVisible={(die) => isDieVisible('guest', die)} />
+      <ResolutionAnimation
+        step={snap.resolutionStep}
+        hostZ={hostZ}
+        guestZ={guestZ}
+        hostDice={snap.host.dice}
+        guestDice={snap.guest.dice}
+        visible={snap.phase === 'resolve'}
+      />
       <Cup player={snap.host} x={0} z={hostZ} />
       <Cup player={snap.guest} x={0} z={guestZ} />
     </Canvas>

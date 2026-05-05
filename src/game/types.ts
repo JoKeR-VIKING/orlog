@@ -1,5 +1,5 @@
 // Orlog game types
-export type DieFace = 'axe' | 'arrow' | 'helmet' | 'shield' | 'steal' | 'earn';
+export type DieFace = 'axe' | 'arrow' | 'helmet' | 'shield' | 'steal';
 
 export const DIE_FACE_ORDER: DieFace[] = [
   'axe',
@@ -7,13 +7,71 @@ export const DIE_FACE_ORDER: DieFace[] = [
   'helmet',
   'shield',
   'steal',
-  'earn',
+];
+
+export interface DieRoll {
+  face: DieFace;
+  grantsFavor: boolean;
+}
+
+export type PhysicalDie = readonly DieRoll[];
+
+export const PHYSICAL_DICE: readonly PhysicalDie[] = [
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: true },
+    { face: 'helmet', grantsFavor: false },
+    { face: 'shield', grantsFavor: false },
+    { face: 'steal', grantsFavor: false },
+    { face: 'axe', grantsFavor: false },
+  ],
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
+    { face: 'helmet', grantsFavor: false },
+    { face: 'shield', grantsFavor: true },
+    { face: 'steal', grantsFavor: true },
+    { face: 'axe', grantsFavor: false },
+  ],
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: true },
+    { face: 'helmet', grantsFavor: true },
+    { face: 'shield', grantsFavor: false },
+    { face: 'steal', grantsFavor: false },
+    { face: 'axe', grantsFavor: false },
+  ],
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
+    { face: 'helmet', grantsFavor: true },
+    { face: 'shield', grantsFavor: false },
+    { face: 'steal', grantsFavor: true },
+    { face: 'axe', grantsFavor: false },
+  ],
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: true },
+    { face: 'helmet', grantsFavor: false },
+    { face: 'shield', grantsFavor: true },
+    { face: 'steal', grantsFavor: false },
+    { face: 'axe', grantsFavor: false },
+  ],
+  [
+    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
+    { face: 'helmet', grantsFavor: true },
+    { face: 'shield', grantsFavor: true },
+    { face: 'steal', grantsFavor: false },
+    { face: 'axe', grantsFavor: false },
+  ],
 ];
 
 // A single die in a player's pool
 export interface Die {
   id: number; // 0..5 within the player's 6 dice
   face: DieFace;
+  grantsFavor: boolean; // golden border: earns 1 favor while still using the face logic
   kept: boolean; // kept between rerolls
   selected: boolean; // selected during the current lock action, not committed yet
 }
@@ -31,6 +89,8 @@ export interface PlayerState {
   name: string;
   hp: number;
   favor: number; // currency ⌘
+  availableFavors: string[]; // up to three god favors locked for this game
+  favorLoadoutLocked: boolean;
   dice: Die[];
   rollsLeft: number; // remaining rolls this round (starts at 3)
   turnRolled: boolean; // true after this player's current turn roll, before locking/passing
@@ -48,9 +108,54 @@ export interface GameSnapshot {
   host: PlayerState;
   guest: PlayerState;
   log: string[]; // resolution log
+  resolutionStep?: ResolutionStep | null;
   winner?: PlayerSide | null;
+  endReason?: { kind: 'normal' | 'forfeit' | 'fled'; side?: PlayerSide } | null;
   rematchRequest?: PlayerSide | null;
 }
+
+export type ResolutionStep =
+  | {
+      id: number;
+      kind: 'favor';
+      hostFavor: number;
+      guestFavor: number;
+      text: string;
+    }
+  | {
+      id: number;
+      kind: 'attack';
+      actor: PlayerSide;
+      target: PlayerSide;
+      attackFace: 'axe' | 'arrow';
+      blockFace: 'helmet' | 'shield';
+      attack: number;
+      blocked: number;
+      damage: number;
+      text: string;
+    }
+  | {
+      id: number;
+      kind: 'steal';
+      actor: PlayerSide;
+      target: PlayerSide;
+      steal: number;
+      stolen: number;
+      text: string;
+    }
+  | {
+      id: number;
+      kind: 'god';
+      actor: PlayerSide;
+      target: PlayerSide;
+      favorId: string;
+      cost: number;
+      actorHpDelta: number;
+      targetHpDelta: number;
+      actorFavorDelta: number;
+      targetFavorDelta: number;
+      text: string;
+    };
 
 export interface GodFavor {
   id: string;
@@ -64,7 +169,7 @@ export interface GodFavor {
   priority: number;
 }
 
-// Curated set of 6 god favors (Valhalla-style simplified, one tier each)
+// Curated one-tier set based on Viking dice-battle god favor pieces.
 export const GOD_FAVORS: GodFavor[] = [
   {
     id: 'baldr',
@@ -80,7 +185,7 @@ export const GOD_FAVORS: GodFavor[] = [
     name: "Skadi's Hunt",
     subtitle: 'Huntress of the Frost',
     description: '+1 arrow damage for each arrow you rolled.',
-    cost: 5,
+    cost: 6,
     icon: 'ᛋ',
     priority: 11,
   },
@@ -88,34 +193,97 @@ export const GOD_FAVORS: GodFavor[] = [
     id: 'vidar',
     name: "Vidar's Might",
     subtitle: 'Silent Son of Odin',
-    description: "Remove 3 of the opponent's helmets/shields.",
-    cost: 4,
+    description: "Remove 2 of the opponent's helmets.",
+    cost: 2,
     icon: 'ᚢ',
     priority: 20,
+  },
+  {
+    id: 'ullr',
+    name: "Ullr's Aim",
+    subtitle: 'Bow-Lord of the Snow',
+    description: 'Up to 2 arrows ignore shields.',
+    cost: 2,
+    icon: 'ᚨ',
+    priority: 21,
+  },
+  {
+    id: 'brunhild',
+    name: "Brunhild's Fury",
+    subtitle: 'Valkyrie Flame',
+    description: 'Multiply your axes by 1.5, rounded up.',
+    cost: 6,
+    icon: 'ᛉ',
+    priority: 22,
+  },
+  {
+    id: 'freyr',
+    name: "Freyr's Gift",
+    subtitle: 'Lord of Plenty',
+    description: 'Add +2 to your majority die face.',
+    cost: 4,
+    icon: 'ᚠ',
+    priority: 23,
+  },
+  {
+    id: 'loki',
+    name: "Loki's Trick",
+    subtitle: 'The Shape-Changer',
+    description: "Ban 1 of the opponent's strongest dice this round.",
+    cost: 3,
+    icon: 'ᛚ',
+    priority: 24,
   },
   {
     id: 'thor',
     name: "Thor's Strike",
     subtitle: 'Thunder of Asgard',
-    description: 'Deal 3 bonus damage after resolution (ignores blocks).',
-    cost: 5,
+    description: 'Deal 2 bonus damage after resolution (ignores blocks).',
+    cost: 4,
     icon: 'ᚦ',
     priority: 40,
+  },
+  {
+    id: 'heimdall',
+    name: "Heimdall's Watch",
+    subtitle: 'Guardian of Bifrost',
+    description: 'Heal 1 health for each attack you block.',
+    cost: 4,
+    icon: 'ᚺ',
+    priority: 45,
+  },
+  {
+    id: 'hel',
+    name: "Hel's Grip",
+    subtitle: 'Queen Below',
+    description: 'Heal 1 health for each axe damage you deal.',
+    cost: 6,
+    icon: 'ᚼ',
+    priority: 46,
   },
   {
     id: 'idun',
     name: "Idun's Rejuvenation",
     subtitle: 'Keeper of Apples',
-    description: 'Heal 4 health after resolution.',
+    description: 'Heal 2 health after resolution.',
     cost: 4,
     icon: 'ᛁ',
     priority: 50,
   },
   {
+    id: 'skuld',
+    name: "Skuld's Claim",
+    subtitle: 'Norn of What Shall Be',
+    description: "Destroy 2 of the opponent's favor for each arrow you rolled.",
+    cost: 4,
+    icon: 'ᛇ',
+    priority: 55,
+  },
+  {
     id: 'mimir',
     name: "Mimir's Wisdom",
     subtitle: 'Severed Seer',
-    description: 'Gain 2 favor ⌘ per damage taken this round.',
+    description: 'Gain 1 favor ⌘ per damage taken this round.',
     cost: 3,
     icon: 'ᛗ',
     priority: 60,
@@ -125,6 +293,16 @@ export const GOD_FAVORS: GodFavor[] = [
 export const GOD_FAVOR_MAP: Record<string, GodFavor> = Object.fromEntries(
   GOD_FAVORS.map((g) => [g.id, g]),
 );
+
+export const DEFAULT_FAVOR_LOADOUT = ['thor', 'idun', 'vidar'];
+export const AI_FAVOR_LOADOUT = ['thor', 'heimdall', 'skuld'];
+export const FAVOR_LOADOUT_SIZE = 3;
+
+export function sanitizeFavorLoadout(ids: string[]): string[] {
+  return ids
+    .filter((id, index) => GOD_FAVOR_MAP[id] && ids.indexOf(id) === index)
+    .slice(0, FAVOR_LOADOUT_SIZE);
+}
 
 // Network message types for Supabase broadcast
 export type NetMsg =
@@ -137,9 +315,11 @@ export type NetMsg =
 
 export type PlayerAction =
   | { kind: 'set_name'; name: string }
+  | { kind: 'set_loadout'; favorIds: string[] }
   | { kind: 'toggle_keep'; dieId: number }
   | { kind: 'reroll' }
   | { kind: 'stand' } // done rolling (skip remaining rerolls)
   | { kind: 'cast_favor'; favorId: string }
   | { kind: 'skip_favors' }
+  | { kind: 'forfeit' }
   | { kind: 'rematch_request' };

@@ -5,6 +5,7 @@ import { isRealSupabase } from '../multiplayer/channel';
 import type { Difficulty } from '../ai/orlogAI';
 import { DIFFICULTY_LABEL, DIFFICULTY_SUBTITLE } from '../ai/orlogAI';
 import { readUrlSession } from '../utils/sessionHash';
+import { FAVOR_LOADOUT_SIZE, GOD_FAVORS } from '../game/types';
 
 const DIFFS: Difficulty[] = ['skald', 'vikingr', 'berserkr'];
 
@@ -27,20 +28,28 @@ export default function HomeScreen() {
   const hostSession = useStore((s) => s.hostSession);
   const joinSession = useStore((s) => s.joinSession);
   const hostSoloSession = useStore((s) => s.hostSoloSession);
+  const favorLoadout = useStore((s) => s.favorLoadout);
+  const setFavorLoadout = useStore((s) => s.setFavorLoadout);
   const soundOn = useStore((s) => s.soundOn);
   const toggleSound = useStore((s) => s.toggleSound);
   const ambientOn = useStore((s) => s.ambientOn);
   const toggleAmbient = useStore((s) => s.toggleAmbient);
   const error = useStore((s) => s.error);
   // On mount, if URL hash has a code, prefill join input + auto-rejoin
-  const initial = useState(() => {
-    const url = readUrlSession();
-    return url;
-  })[0];
+  const initial = useState(() => readUrlSession())[0];
   const [code, setCode] = useState(initial.code || '');
   const [mode, setMode] = useState<'idle' | 'join' | 'solo'>(
     initial.code ? 'join' : initial.ai ? 'solo' : 'idle',
   );
+
+  const toggleFavor = (id: string) => {
+    if (favorLoadout.includes(id)) {
+      setFavorLoadout(favorLoadout.filter((favorId) => favorId !== id));
+      return;
+    }
+    if (favorLoadout.length >= FAVOR_LOADOUT_SIZE) return;
+    setFavorLoadout([...favorLoadout, id]);
+  };
 
   useEffect(() => {
     if (!nameInput) setName(randomNordicName());
@@ -64,15 +73,25 @@ export default function HomeScreen() {
           <div className="rune-divider text-sm mb-4">
             <span>ᛟ ᚱ ᛚ ᛟ ᚷ</span>
           </div>
-          <h1 className="heading-carved text-5xl md:text-7xl font-bold text-[var(--color-text-primary)] leading-[1.05]">
-            ORLOG
-          </h1>
+          <div className="flex items-center gap-4 md:gap-5">
+            <img
+              src="/orlog-logo.svg"
+              alt="ORLOG"
+              className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
+            />
+            <h1 className="heading-carved text-5xl md:text-7xl font-bold text-[var(--color-text-primary)] leading-[1.05]">
+              ORLOG
+            </h1>
+          </div>
           <p className="text-[var(--color-gold)] italic tracking-widest uppercase text-sm md:text-base mt-2">
             A Game of Fate &middot; 800 AD
           </p>
           <p className="text-[var(--color-text-secondary)] mt-5 leading-relaxed text-base md:text-lg max-w-lg">
             Cast the bones, call upon the Æsir, and carve your foe's fate into the Norns' cloth.
             Two warriors, six dice each, fifteen stones of life &mdash; only one shall tell the saga.
+          </p>
+          <p className="text-[var(--color-text-secondary)]/70 mt-3 leading-relaxed text-xs md:text-sm max-w-lg italic">
+            * Fan-made dice battle inspired by the Orlog mini-game from Assassin's Creed Valhalla.
           </p>
 
           <div className="mt-8 parchment grain-overlay relative p-5 md:p-6 max-w-lg rounded-sm">
@@ -88,6 +107,54 @@ export default function HomeScreen() {
               className="w-full bg-[#1a1412] text-[var(--color-text-primary)] border border-[#4a4e53] rounded-sm px-3 py-2 font-[var(--font-heading)] tracking-wider focus:border-[var(--color-gold)] focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
               data-testid="name-input"
             />
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label className="block text-xs md:text-sm uppercase tracking-widest text-[#3a2a18]">
+                  God Favor Loadout (Optional)
+                </label>
+                <span className="text-xs uppercase tracking-widest text-[#5c4427]">
+                  {favorLoadout.length}/{FAVOR_LOADOUT_SIZE}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                {GOD_FAVORS.map((favor) => {
+                  const selected = favorLoadout.includes(favor.id);
+                  const disabled = !selected && favorLoadout.length >= FAVOR_LOADOUT_SIZE;
+                  return (
+                    <button
+                      key={favor.id}
+                      type="button"
+                      onClick={() => toggleFavor(favor.id)}
+                      disabled={disabled}
+                      className={`text-left bg-[#1a1412] border-2 rounded-sm px-3 py-2 transition-all disabled:opacity-45 disabled:cursor-not-allowed ${
+                        selected ? 'border-[var(--color-gold)]' : 'border-[#4a3525] hover:border-[var(--color-gold)]'
+                      }`}
+                      style={{
+                        boxShadow: selected
+                          ? 'inset 0 0 12px rgba(198,130,52,0.35), 0 0 0 2px rgba(198,130,52,0.45)'
+                          : 'inset 0 0 8px rgba(0,0,0,0.45)',
+                      }}
+                      data-testid={`loadout-favor-${favor.id}`}
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="rune-title text-xl text-[var(--color-gold)] w-6 text-center flex-shrink-0">
+                          {favor.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="heading-carved text-xs text-[var(--color-text-primary)] leading-tight break-words">
+                            {favor.name}
+                          </div>
+                          <div className="text-[10px] text-[var(--color-text-secondary)] leading-snug">
+                            <span className="favor-token">⌘</span> {favor.cost} · {favor.description}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-5">
               <WoodenButton

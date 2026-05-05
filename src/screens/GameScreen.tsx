@@ -4,7 +4,7 @@ import { PlayerHUD } from '../components/ui/PlayerHUD';
 import { GodFavorPanel } from '../components/ui/GodFavorPanel';
 import { DieFaceIcon } from '../components/ui/DieFaceIcon';
 import GameScene from '../scenes/GameScene';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 function phaseLabel(phase: string) {
   switch (phase) {
@@ -28,7 +28,8 @@ export default function GameScreen() {
   const selfSide = useStore((s) => s.selfSide);
   const floaters = useStore((s) => s.floaters);
   const opponentPresent = useStore((s) => s.opponentPresent);
-  const leave = useStore((s) => s.leave);
+  const forfeit = useStore((s) => s.forfeit);
+  const markOpponentFled = useStore((s) => s.markOpponentFled);
   const toggleKeep = useStore((s) => s.toggleKeep);
   const doReroll = useStore((s) => s.doReroll);
   const stand = useStore((s) => s.stand);
@@ -38,7 +39,8 @@ export default function GameScreen() {
   const aiMode = useStore((s) => s.aiMode);
   const opponentLastSeen = useStore((s) => s.opponentLastSeen);
 
-  const log = useMemo(() => snap.log.slice(-6), [snap.log]);
+  const log = useMemo(() => snap.log.slice(-12), [snap.log]);
+  const logScrollRef = useRef<HTMLDivElement>(null);
 
   // Tick every 500ms to update reconnect countdown UI
   const [now, setNow] = useState<number>(() => Date.now());
@@ -46,6 +48,12 @@ export default function GameScreen() {
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    const el = logScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [log]);
 
   if (!selfSide) return null;
   const self = snap[selfSide];
@@ -96,13 +104,13 @@ export default function GameScreen() {
       {/* Left side: game log */}
       {log.length > 0 && (
         <div
-          className="absolute left-3 md:left-5 top-36 md:top-40 z-20 parchment px-3 py-2 text-xs md:text-sm text-[#3a2a18] w-64 md:w-72 max-h-52 overflow-hidden"
+          className="absolute left-3 md:left-5 top-36 md:top-40 z-20 parchment px-3 py-2 text-xs md:text-sm text-[#3a2a18] w-72 md:w-96 max-h-72 md:max-h-80 overflow-hidden"
           data-testid="resolution-log"
         >
           <div className="heading-carved text-[10px] md:text-xs uppercase tracking-widest text-[#5a3a1f] mb-1">
             Saga Log
           </div>
-          <div className="space-y-0.5">
+          <div ref={logScrollRef} className="space-y-0.5 max-h-60 md:max-h-72 overflow-y-auto pr-2">
             {log.map((line, i) => (
               <div key={i} className="leading-snug">{line}</div>
             ))}
@@ -123,7 +131,7 @@ export default function GameScreen() {
             {reconnectTimedOut ? (
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <span className="heading-carved text-blood">The foe has fled the field.</span>
-                <WoodenButton variant="gold" onClick={leave} data-testid="abandon-session-button">
+                <WoodenButton variant="gold" onClick={markOpponentFled} data-testid="abandon-session-button">
                   End Saga
                 </WoodenButton>
               </div>
@@ -144,7 +152,7 @@ export default function GameScreen() {
 
       {/* Bottom: dice tray + controls */}
       <div className="absolute left-0 right-0 bottom-0 z-20 px-3 md:px-6 pb-4 md:pb-6 flex flex-col items-center gap-3">
-        {snap.phase === 'favor' && (
+        {snap.phase === 'favor' && self.availableFavors.length > 0 && (
           <GodFavorPanel
             player={self}
             canAct={canFavor}
@@ -165,7 +173,7 @@ export default function GameScreen() {
                 return (
                   <div
                     key={i}
-                    className={`dice-chip disabled ${d.kept || d.selected ? 'kept' : ''}`}
+                    className={`dice-chip disabled ${visible && d.grantsFavor ? 'grants-favor' : ''} ${d.kept || d.selected ? 'kept' : ''}`}
                     style={{ width: 38, height: 38 }}
                     data-testid={`opponent-dice-${i}`}
                     title={visible ? `${d.face}${d.kept ? ' (locked)' : d.selected ? ' (selected)' : ''}` : 'Hidden'}
@@ -206,7 +214,7 @@ export default function GameScreen() {
                     key={i}
                     onClick={() => toggleKeep(d.id)}
                     disabled={!canSelectDice || d.kept}
-                    className={`dice-chip ${d.kept || d.selected ? 'kept' : ''} ${self.rolling ? 'disabled' : ''}`}
+                    className={`dice-chip ${selfHasRolled || d.kept ? d.grantsFavor ? 'grants-favor' : '' : ''} ${d.kept || d.selected ? 'kept' : ''} ${self.rolling ? 'disabled' : ''}`}
                     style={{ opacity: self.rolling ? 0.4 : 1 }}
                     data-testid={`dice-item-${i}`}
                     title={selfHasRolled || d.kept ? `${d.face}${d.kept ? ' (locked)' : d.selected ? ' (selected)' : ''}` : 'Roll to reveal'}
@@ -248,7 +256,7 @@ export default function GameScreen() {
 
       {/* Top-right overlay leave button */}
       <button
-        onClick={leave}
+        onClick={forfeit}
         className="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-30 text-xs uppercase tracking-widest text-text-secondary hover:text-accent transition-colors"
         data-testid="leave-game-button"
       >

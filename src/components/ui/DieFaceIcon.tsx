@@ -69,15 +69,5 @@ export function DieFaceIcon({
           <path d="M15 17 L15 12" />
         </svg>
       );
-    case 'earn':
-      // Rune / favor gem
-      return (
-        <svg {...common}>
-          <path d="M16 5 L26 16 L16 27 L6 16 Z" fill={color} fillOpacity="0.2" />
-          <path d="M16 9 L16 23" />
-          <path d="M10 16 L22 16" />
-          <path d="M13 13 L19 19" />
-        </svg>
-      );
   }
 }

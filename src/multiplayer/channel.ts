@@ -74,21 +74,23 @@ function createSupabaseChannel(code: string): Channel {
   });
 
   ch.on('presence', { event: 'sync' }, () => {
-    const state = ch.presenceState<{ side: PlayerSide; joinedAt: number }>();
+    const state = ch.presenceState<{ joinedAt: number }>();
     // Collect all members
-    const members: { id: string; side: PlayerSide; joinedAt: number }[] = [];
+    const members: { id: string; joinedAt: number }[] = [];
     Object.entries(state).forEach(([id, metas]) => {
       const m = metas[0];
-      if (m) members.push({ id, side: m.side, joinedAt: m.joinedAt });
+      if (m) members.push({ id, joinedAt: m.joinedAt });
     });
-    members.sort((a, b) => a.joinedAt - b.joinedAt);
-    const host = members.find((m) => m.side === 'host');
-    const guest = members.find((m) => m.side === 'guest');
+    members.sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
+    const host = members[0];
+    const guest = members[1];
+    const selfIndex = members.findIndex((m) => m.id === selfId);
+    const selfSide: PlayerSide | null = selfIndex === 0 ? 'host' : selfIndex === 1 ? 'guest' : null;
     presenceInfo = {
       hostId: host?.id || null,
       guestId: guest?.id || null,
       self: selfId,
-      selfSide: presenceInfo.selfSide,
+      selfSide,
       full: Boolean(host && guest),
     };
     emitPresence();
@@ -96,12 +98,7 @@ function createSupabaseChannel(code: string): Channel {
 
   ch.subscribe(async (status) => {
     if (status === 'SUBSCRIBED') {
-      // Assign side: if no host yet, we're host; else guest.
-      const state = ch.presenceState<{ side: PlayerSide; joinedAt: number }>();
-      const hostAlready = Object.values(state).flat().some((m) => (m as { side: PlayerSide }).side === 'host');
-      const side: PlayerSide = hostAlready ? 'guest' : 'host';
-      presenceInfo = { ...presenceInfo, selfSide: side };
-      await ch.track({ side, joinedAt: Date.now() });
+      await ch.track({ joinedAt: Date.now() });
     }
   });
 

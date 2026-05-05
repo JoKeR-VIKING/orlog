@@ -6,15 +6,18 @@ import { create } from 'zustand';
 import {
   MAX_ROLLS,
   MAX_REROLLS,
+  applyResolutionStep,
   applyRollForPlayer,
   beginNextRound,
+  buildResolutionSteps,
   freshSnapshot,
-  resolveRound,
+  freshSoloSnapshot,
   rollSix,
   winner,
 } from '../game/engine';
+import type { ResolutionStep } from '../game/types';
 import type { GameSnapshot, NetMsg, PlayerAction, PlayerSide } from '../game/types';
-import { GOD_FAVOR_MAP } from '../game/types';
+import { DEFAULT_FAVOR_LOADOUT, GOD_FAVOR_MAP, sanitizeFavorLoadout } from '../game/types';
 import { randomCode, randomSeed } from '../game/rng';
 import type { Channel, PresenceInfo } from '../multiplayer/channel';
 import { createChannel } from '../multiplayer/channel';
@@ -34,6 +37,7 @@ export interface ConnectionState {
   opponentPresent: boolean;
   opponentLastSeen: number; // timestamp ms when opponent was last confirmed present
   nameInput: string;
+  favorLoadout: string[];
   soundOn: boolean;
   ambientOn: boolean;
   error: string | null;
@@ -48,6 +52,7 @@ export interface Store extends ConnectionState, AnimationState {
   snap: GameSnapshot;
   // session actions
   setName: (name: string) => void;
+  setFavorLoadout: (favorIds: string[]) => void;
   hostSession: () => void;
   joinSession: (code: string) => void;
   hostSoloSession: (difficulty: Difficulty) => void;
@@ -60,6 +65,8 @@ export interface Store extends ConnectionState, AnimationState {
   stand: () => void;
   castFavor: (favorId: string) => void;
   skipFavors: () => void;
+  forfeit: () => void;
+  markOpponentFled: () => void;
   requestRematch: () => void;
   backToHome: () => void;
 }
@@ -84,6 +91,21 @@ function addFloater(set: (fn: (s: Store) => Partial<Store>) => void, side: Playe
   }, 1700);
 }
 
+function playResolutionFloater(set: (fn: (s: Store) => Partial<Store>) => void, step: ResolutionStep) {
+  if (step.kind === 'favor') {
+    if (step.hostFavor > 0) addFloater(set, 'host', `+${step.hostFavor}⌘`, 'favor');
+    if (step.guestFavor > 0) addFloater(set, 'guest', `+${step.guestFavor}⌘`, 'favor');
+  } else if (step.kind === 'attack') {
+    if (step.damage > 0) addFloater(set, step.target, `-${step.damage}`, 'dmg');
+  } else if (step.kind === 'god') {
+    if (step.actorHpDelta > 0) addFloater(set, step.actor, `+${step.actorHpDelta}`, 'heal');
+    if (step.targetHpDelta < 0) addFloater(set, step.target, `${step.targetHpDelta}`, 'dmg');
+    if (step.actorFavorDelta > 0) addFloater(set, step.actor, `+${step.actorFavorDelta}⌘`, 'favor');
+  } else if (step.stolen > 0) {
+    addFloater(set, step.actor, `+${step.stolen}⌘`, 'favor');
+  }
+}
+
 function passRollTurn(snap: GameSnapshot, side: PlayerSide) {
   const other = side === 'host' ? 'guest' : 'host';
   if (!snap[other].ready) {
@@ -91,6 +113,19 @@ function passRollTurn(snap: GameSnapshot, side: PlayerSide) {
   } else if (!snap[side].ready) {
     snap.rollTurn = side;
   }
+}
+
+function hasFavorOptions(side: PlayerSide, snap: GameSnapshot): boolean {
+  return sanitizeFavorLoadout(snap[side].availableFavors).length > 0;
+}
+
+function startResolution(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void) {
+  const { snap } = get();
+  snap.phase = 'resolve';
+  snap.resolutionStep = null;
+  set({ snap: structuredClone(snap) });
+  broadcastSnapshot(get);
+  runResolutionSequence(get, set, buildResolutionSteps(snap), 0);
 }
 
 // Host performs one active player's roll. Players then lock dice to pass the roll turn.
@@ -127,49 +162,109 @@ function maybeAdvancePhase(get: () => Store, set: (partial: Partial<Store> | ((s
   const { snap } = get();
   if (snap.phase === 'roll' && snap.host.ready && snap.guest.ready) {
     snap.phase = 'favor';
-    snap.host.favorReady = false;
-    snap.guest.favorReady = false;
+    snap.host.favorReady = !hasFavorOptions('host', snap);
+    snap.guest.favorReady = !hasFavorOptions('guest', snap);
     set({ snap: structuredClone(snap) });
     broadcastSnapshot(get);
     audio.play('horn');
+    if (snap.host.favorReady && snap.guest.favorReady) {
+      startResolution(get, set);
+      return;
+    }
     maybeScheduleAi(get, set);
   } else if (snap.phase === 'favor' && snap.host.favorReady && snap.guest.favorReady) {
-    snap.phase = 'resolve';
-    set({ snap: structuredClone(snap) });
-    broadcastSnapshot(get);
-    const report = resolveRound(snap);
-    snap.log = [...snap.log.slice(-20), ...report.log];
-    if (report.host.damageTaken > 0) addFloater(set, 'host', `-${report.host.damageTaken}`, 'dmg');
-    if (report.guest.damageTaken > 0) addFloater(set, 'guest', `-${report.guest.damageTaken}`, 'dmg');
-    if (report.host.healed > 0) addFloater(set, 'host', `+${report.host.healed}`, 'heal');
-    if (report.guest.healed > 0) addFloater(set, 'guest', `+${report.guest.healed}`, 'heal');
-    if (report.host.favorGained > 0) addFloater(set, 'host', `+${report.host.favorGained}⌘`, 'favor');
-    if (report.guest.favorGained > 0) addFloater(set, 'guest', `+${report.guest.favorGained}⌘`, 'favor');
-    if (report.host.damageTaken > 0 || report.guest.damageTaken > 0) audio.play('damage');
-    if (report.host.healed > 0 || report.guest.healed > 0) setTimeout(() => audio.play('heal'), 200);
-
-    set({ snap: structuredClone(snap) });
-    broadcastSnapshot(get);
-
-    setTimeout(() => {
-      const s2 = get().snap;
-      const w = winner(s2);
-      if (w) {
-        s2.winner = w;
-        s2.phase = 'game-over';
-        set({ snap: structuredClone(s2), view: 'end' });
-        broadcastSnapshot(get);
-        const self = get().selfSide;
-        if (self && self === w) audio.play('victory');
-        else audio.play('defeat');
-      } else {
-        beginNextRound(s2);
-        set({ snap: structuredClone(s2) });
-        broadcastSnapshot(get);
-        maybeScheduleAi(get, set);
-      }
-    }, 2600);
+    startResolution(get, set);
   }
+}
+
+function finishResolution(get: () => Store, set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void) {
+  const s2 = get().snap;
+  s2.host.pendingFavors = [];
+  s2.guest.pendingFavors = [];
+  s2.resolutionStep = null;
+  const w = winner(s2);
+  if (w) {
+    s2.winner = w;
+    s2.phase = 'game-over';
+    s2.endReason = { kind: 'normal' };
+    set({ snap: structuredClone(s2), view: 'end' });
+    broadcastSnapshot(get);
+    const self = get().selfSide;
+    if (self && self === w) audio.play('victory');
+    else audio.play('defeat');
+  } else {
+    beginNextRound(s2);
+    set({ snap: structuredClone(s2) });
+    broadcastSnapshot(get);
+    maybeScheduleAi(get, set);
+  }
+}
+
+function endByForfeit(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+  side: PlayerSide,
+) {
+  const snap = get().snap;
+  if (snap.phase === 'game-over') return;
+  const victor = side === 'host' ? 'guest' : 'host';
+  snap.winner = victor;
+  snap.phase = 'game-over';
+  snap.endReason = { kind: 'forfeit', side };
+  snap.rematchRequest = null;
+  snap.resolutionStep = null;
+  snap.log = [...snap.log.slice(-20), `${snap[side].name} forfeits the saga.`];
+  set({ snap: structuredClone(snap), view: 'end' });
+  broadcastSnapshot(get);
+  const self = get().selfSide;
+  if (self && self === victor) audio.play('victory');
+  else audio.play('defeat');
+}
+
+function endByOpponentFled(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+) {
+  const selfSide = get().selfSide;
+  if (!selfSide) return;
+  const snap = get().snap;
+  if (snap.phase === 'game-over') return;
+  const fledSide = selfSide === 'host' ? 'guest' : 'host';
+  snap.winner = selfSide;
+  snap.phase = 'game-over';
+  snap.endReason = { kind: 'fled', side: fledSide };
+  snap.rematchRequest = null;
+  snap.resolutionStep = null;
+  snap.log = [...snap.log.slice(-20), `${snap[fledSide].name} fled the field. ${snap[selfSide].name} wins.`];
+  set({ snap: structuredClone(snap), view: 'end' });
+  if (selfSide === 'host') broadcastSnapshot(get);
+  audio.play('victory');
+}
+
+function runResolutionSequence(
+  get: () => Store,
+  set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
+  steps: ResolutionStep[],
+  index: number,
+) {
+  if (index >= steps.length) {
+    setTimeout(() => finishResolution(get, set), 900);
+    return;
+  }
+
+  setTimeout(() => {
+    const snap = get().snap;
+    if (snap.phase !== 'resolve') return;
+    const applied = applyResolutionStep(snap, steps[index]);
+    snap.resolutionStep = applied;
+    snap.log = [...snap.log.slice(-20), applied.text];
+    set({ snap: structuredClone(snap) });
+    broadcastSnapshot(get);
+    playResolutionFloater(set, applied);
+    if ((applied.kind === 'attack' && applied.damage > 0) || (applied.kind === 'god' && applied.targetHpDelta < 0)) audio.play('damage');
+    if (applied.kind === 'favor' || (applied.kind === 'steal' && applied.stolen > 0)) audio.play('diceReveal');
+    runResolutionSequence(get, set, steps, index + 1);
+  }, index === 0 ? 500 : 1350);
 }
 
 // ---- AI scheduling ----
@@ -246,6 +341,17 @@ function applyAction(
       broadcastSnapshot(get);
       break;
     }
+    case 'set_loadout': {
+      if (p.favorLoadoutLocked) break;
+      if (snap.phase !== 'roll' || snap.round !== 1 || p.turnRolled || p.ready) break;
+      p.availableFavors = sanitizeFavorLoadout(action.favorIds);
+      p.favorLoadoutLocked = true;
+      p.pendingFavors = [];
+      snap.log = [...snap.log.slice(-20), `${p.name} locks ${p.availableFavors.length} god favor${p.availableFavors.length === 1 ? '' : 's'} for this saga.`];
+      set({ snap: structuredClone(snap) });
+      broadcastSnapshot(get);
+      break;
+    }
     case 'toggle_keep': {
       if (snap.phase !== 'roll' || snap.rollTurn !== side || p.rolling || p.ready || !p.turnRolled) break;
       const d = p.dice[action.dieId];
@@ -287,13 +393,13 @@ function applyAction(
       if (snap.phase !== 'favor') break;
       const god = GOD_FAVOR_MAP[action.favorId];
       if (!god) break;
-      const alreadyCost = p.pendingFavors.reduce(
-        (acc, id) => acc + (GOD_FAVOR_MAP[id]?.cost || 0),
-        0,
-      );
-      if (p.pendingFavors.includes(god.id)) break;
-      if (p.favor - alreadyCost < god.cost) break;
-      p.pendingFavors.push(god.id);
+      if (!p.availableFavors.includes(god.id)) break;
+      if (p.pendingFavors.includes(god.id)) {
+        p.pendingFavors = [];
+      } else {
+        if (p.favor < god.cost) break;
+        p.pendingFavors = [god.id];
+      }
       set({ snap: structuredClone(snap) });
       broadcastSnapshot(get);
       break;
@@ -306,10 +412,15 @@ function applyAction(
       maybeAdvancePhase(get, set);
       break;
     }
+    case 'forfeit': {
+      endByForfeit(get, set, side);
+      break;
+    }
     case 'rematch_request': {
       if (snap.phase !== 'game-over') break;
+      if (snap.endReason?.kind === 'forfeit' || snap.endReason?.kind === 'fled') break;
       if (snap.rematchRequest && snap.rematchRequest !== side) {
-        const reset = freshSnapshot(snap.host.name, snap.guest.name);
+        const reset = freshSnapshot(snap.host.name, snap.guest.name, snap.host.availableFavors, snap.guest.availableFavors);
         set({ snap: reset, view: 'game', floaters: [] });
         broadcastSnapshot(get);
       } else {
@@ -335,6 +446,7 @@ export const useStore = create<Store>((set, get) => ({
   opponentPresent: false,
   opponentLastSeen: 0,
   nameInput: '',
+  favorLoadout: [...DEFAULT_FAVOR_LOADOUT],
   soundOn: true,
   ambientOn: false,
   error: null,
@@ -355,10 +467,14 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
+  setFavorLoadout: (favorIds) => {
+    set({ favorLoadout: sanitizeFavorLoadout(favorIds) });
+  },
+
   hostSession: () => {
     const code = randomCode(6);
     const name = get().nameInput || 'Wanderer';
-    openSession(get, set, code, name, null);
+    openSession(get, set, code, name, null, get().favorLoadout);
   },
 
   joinSession: (code) => {
@@ -368,12 +484,12 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
     const name = get().nameInput || 'Wanderer';
-    openSession(get, set, clean, name, null);
+    openSession(get, set, clean, name, null, get().favorLoadout);
   },
 
   hostSoloSession: (difficulty) => {
     const name = get().nameInput || 'Wanderer';
-    openSoloSession(get, set, name, difficulty);
+    openSoloSession(get, set, name, difficulty, get().favorLoadout);
   },
 
   leave: () => {
@@ -452,6 +568,23 @@ export const useStore = create<Store>((set, get) => ({
     else channel.send({ type: 'action', side: 'guest', action });
   },
 
+  forfeit: () => {
+    const { selfSide, channel } = get();
+    if (!selfSide || !channel) return;
+    const action: PlayerAction = { kind: 'forfeit' };
+    if (selfSide === 'host') {
+      channel.send({ type: 'action', side: 'host', action });
+      applyAction(get, set, 'host', action);
+    } else {
+      channel.send({ type: 'action', side: 'guest', action });
+      endByForfeit(get, set, 'guest');
+    }
+  },
+
+  markOpponentFled: () => {
+    endByOpponentFled(get, set);
+  },
+
   requestRematch: () => {
     const { selfSide, channel } = get();
     if (!selfSide || !channel) return;
@@ -470,11 +603,15 @@ function openSession(
   code: string,
   name: string,
   ai: Difficulty | null,
+  favorLoadout: string[],
 ) {
   const prev = get().channel;
   if (prev) prev.leave();
 
   const channel = createChannel(code);
+
+  const snap = freshSnapshot(name, name === 'Host' ? 'Guest' : 'Opponent', favorLoadout);
+  snap.guest.favorLoadoutLocked = false;
 
   set({
     channel,
@@ -486,7 +623,7 @@ function openSession(
     opponentLastSeen: Date.now(),
     aiMode: ai,
     error: null,
-    snap: freshSnapshot(name, name === 'Host' ? 'Guest' : 'Opponent'),
+    snap,
     floaters: [],
   });
   writeUrlSession({ code, ai: null });
@@ -518,9 +655,12 @@ function openSession(
       channel.send({ type: 'hello', side: sSide, name });
       if (sSide === 'guest') {
         channel.send({ type: 'action', side: 'guest', action: { kind: 'set_name', name } });
+        channel.send({ type: 'action', side: 'guest', action: { kind: 'set_loadout', favorIds: favorLoadout } });
       } else {
         const snap = get().snap;
         snap.host.name = name;
+        snap.host.availableFavors = sanitizeFavorLoadout(favorLoadout);
+        snap.host.favorLoadoutLocked = true;
         set({ snap: structuredClone(snap) });
       }
       clearInterval(helloTimer);
@@ -540,7 +680,9 @@ function openSession(
         break;
       }
       case 'action': {
-        if (selfSide === 'host') applyAction(get, set, msg.side, msg.action);
+        if (selfSide === 'host' || msg.action.kind === 'forfeit') {
+          applyAction(get, set, msg.side, msg.action);
+        }
         break;
       }
       case 'hello': {
@@ -571,6 +713,7 @@ function openSoloSession(
   set: (partial: Partial<Store> | ((s: Store) => Partial<Store>)) => void,
   name: string,
   difficulty: Difficulty,
+  favorLoadout: string[],
 ) {
   const prev = get().channel;
   if (prev) prev.leave();
@@ -599,7 +742,7 @@ function openSoloSession(
     opponentLastSeen: Date.now(),
     aiMode: difficulty,
     error: null,
-    snap: freshSnapshot(name, aiName),
+    snap: freshSoloSnapshot(name, aiName, favorLoadout),
     floaters: [],
   });
   writeUrlSession({ code: null, ai: difficulty });

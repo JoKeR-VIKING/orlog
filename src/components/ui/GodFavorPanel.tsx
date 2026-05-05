@@ -1,4 +1,4 @@
-import { GOD_FAVORS, GOD_FAVOR_MAP } from '../../game/types';
+import { GOD_FAVOR_MAP, sanitizeFavorLoadout } from '../../game/types';
 import type { PlayerState } from '../../game/types';
 import { WoodenButton } from './WoodenButton';
 
@@ -15,6 +15,10 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
     0,
   );
   const effectiveFavor = player.favor - pendingCost;
+  const hasChoice = player.pendingFavors.length > 0;
+  const loadout = sanitizeFavorLoadout(player.availableFavors)
+    .map((id) => GOD_FAVOR_MAP[id])
+    .filter(Boolean);
 
   return (
     <div
@@ -24,7 +28,7 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
       <div className="flex items-baseline justify-between gap-4 mb-3">
         <div>
           <h3 className="heading-carved text-xl md:text-2xl text-[#3a2a18]">God Favors</h3>
-          <p className="text-xs md:text-sm italic text-[#5c4427]">Call upon the Æsir. Priority resolves in order.</p>
+          <p className="text-xs md:text-sm italic text-[#5c4427]">Choose one locked favor for this turn.</p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="text-xs md:text-sm text-[#3a2a18]">
@@ -44,9 +48,9 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-        {GOD_FAVORS.map((g) => {
+        {loadout.map((g) => {
           const chosen = player.pendingFavors.includes(g.id);
-          const affordable = effectiveFavor >= g.cost || chosen;
+          const affordable = player.favor >= g.cost || chosen;
           return (
             <button
               key={g.id}
@@ -60,16 +64,16 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
               onClick={() => onCast(g.id)}
               data-testid={`god-favor-card-${g.id}`}
             >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-start gap-2 min-w-0 flex-1">
                   <span
-                    className="text-2xl md:text-3xl font-bold rune-title"
+                    className="text-2xl md:text-3xl font-bold rune-title flex-shrink-0"
                     style={{ color: '#c68234', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
                   >
                     {g.icon}
                   </span>
-                  <div>
-                    <div className="heading-carved text-[var(--color-text-primary)] text-sm md:text-base leading-tight">
+                  <div className="min-w-0">
+                    <div className="heading-carved text-[var(--color-text-primary)] text-xs md:text-sm leading-tight break-words">
                       {g.name}
                     </div>
                     <div className="text-[10px] md:text-xs italic text-[var(--color-text-secondary)]">
@@ -77,11 +81,16 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="text-xs md:text-sm flex-shrink-0">
-                  <span className="favor-token mr-1">⌘</span>
+                <div className="text-xs md:text-sm flex-shrink-0 inline-flex items-center gap-1 ml-1">
+                  <span className="favor-token">⌘</span>
                   <span className="text-[var(--color-gold)] font-bold">{g.cost}</span>
                 </div>
               </div>
+              {hasChoice && !chosen && affordable && (
+                <div className="text-[10px] uppercase tracking-widest text-[var(--color-gold)]/75 mb-1">
+                  Replaces selected
+                </div>
+              )}
               <p className="text-xs md:text-sm text-[var(--color-text-primary)]/90 leading-snug">
                 {g.description}
               </p>

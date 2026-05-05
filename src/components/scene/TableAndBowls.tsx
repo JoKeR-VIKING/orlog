@@ -134,33 +134,12 @@ function drawDieFaceGlyph(ctx: CanvasRenderingContext2D, face: DieFace) {
         ctx.lineTo(15, 12);
       });
       break;
-    case 'earn':
-      fillStrokePath(ctx, 0.2, () => {
-        ctx.moveTo(16, 5);
-        ctx.lineTo(26, 16);
-        ctx.lineTo(16, 27);
-        ctx.lineTo(6, 16);
-        ctx.closePath();
-      });
-      strokePath(ctx, () => {
-        ctx.moveTo(16, 9);
-        ctx.lineTo(16, 23);
-      });
-      strokePath(ctx, () => {
-        ctx.moveTo(10, 16);
-        ctx.lineTo(22, 16);
-      });
-      strokePath(ctx, () => {
-        ctx.moveTo(13, 13);
-        ctx.lineTo(19, 19);
-      });
-      break;
   }
   ctx.restore();
 }
 
 // Generate a canvas texture for a dice face glyph (drawn over bone-white background).
-function makeFaceTexture(face: DieFace): THREE.Texture {
+function makeFaceTexture(face: DieFace, grantsFavor: boolean): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const ctx = c.getContext('2d')!;
@@ -174,6 +153,16 @@ function makeFaceTexture(face: DieFace): THREE.Texture {
   ctx.strokeStyle = 'rgba(40,20,8,0.45)';
   ctx.lineWidth = 4;
   ctx.strokeRect(4, 4, 120, 120);
+  if (grantsFavor) {
+    ctx.save();
+    ctx.strokeStyle = '#f2b84f';
+    ctx.lineWidth = 14;
+    ctx.strokeRect(10, 10, 108, 108);
+    ctx.strokeStyle = 'rgba(42,22,6,0.9)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(18, 18, 92, 92);
+    ctx.restore();
+  }
   drawDieFaceGlyph(ctx, face);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -182,12 +171,13 @@ function makeFaceTexture(face: DieFace): THREE.Texture {
 }
 
 // Cache textures per face — generated once.
-const FACE_TEX_CACHE = new Map<DieFace, THREE.Texture>();
-function getFaceTexture(face: DieFace): THREE.Texture {
-  let t = FACE_TEX_CACHE.get(face);
+const FACE_TEX_CACHE = new Map<string, THREE.Texture>();
+function getFaceTexture(face: DieFace, grantsFavor: boolean): THREE.Texture {
+  const key = `${face}:${grantsFavor ? 'favor' : 'plain'}`;
+  let t = FACE_TEX_CACHE.get(key);
   if (!t) {
-    t = makeFaceTexture(face);
-    FACE_TEX_CACHE.set(face, t);
+    t = makeFaceTexture(face, grantsFavor);
+    FACE_TEX_CACHE.set(key, t);
   }
   return t;
 }
@@ -234,7 +224,6 @@ function faceColor(face: DieFace): string {
     case 'helmet': return '#c2a97a';
     case 'shield': return '#8a9aa8';
     case 'steal': return '#7a5fb5';
-    case 'earn': return '#d9b44a';
   }
 }
 
@@ -287,26 +276,37 @@ export function Table() {
 
 // A single die inside the bowl — just a small colored cube showing the rolled face color.
 // A single die inside the bowl — top face has glyph texture, sides colored.
-function BowlDie({ x, y, z, face, kept, rot }: { x: number; y: number; z: number; face: DieFace; kept: boolean; rot: number }) {
-  const topTex = getFaceTexture(face);
+export function BowlDie({
+  x,
+  y,
+  z,
+  face,
+  grantsFavor,
+  rot,
+}: {
+  x: number;
+  y: number;
+  z: number;
+  face: DieFace;
+  grantsFavor: boolean;
+  rot: number;
+}) {
+  const topTex = getFaceTexture(face, grantsFavor);
   const sideColor = faceColor(face);
-  const emissiveColor = kept ? '#c68234' : '#000000';
-  const emissiveSide = kept ? 0.5 : 0.05;
-  const emissiveTop = kept ? 0.45 : 0.05;
-  const size = kept ? 0.42 : 0.4;
+  const size = 0.4;
 
   const materials = useMemo(() => {
     const sideMat = new THREE.MeshStandardMaterial({
       color: sideColor,
-      emissive: new THREE.Color(emissiveColor),
-      emissiveIntensity: emissiveSide,
+      emissive: new THREE.Color('#000000'),
+      emissiveIntensity: 0.05,
       roughness: 0.55,
       metalness: 0.05,
     });
     const topMat = new THREE.MeshStandardMaterial({
       map: topTex,
-      emissive: new THREE.Color(emissiveColor),
-      emissiveIntensity: emissiveTop,
+      emissive: new THREE.Color('#000000'),
+      emissiveIntensity: 0.05,
       roughness: 0.5,
       metalness: 0.0,
     });
@@ -319,8 +319,7 @@ function BowlDie({ x, y, z, face, kept, rot }: { x: number; y: number; z: number
       sideMat.clone(),
       sideMat.clone(),
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sideColor, topTex, kept]);
+  }, [sideColor, topTex]);
 
   return (
     <mesh position={[x, y, z]} rotation-y={rot} material={materials}>
@@ -375,7 +374,7 @@ export function Bowl({
         const dx = (col - 1) * 0.42;
         const dz = (row - 0.5) * 0.42;
         const rot = ((d.id * 37) % 100) / 100 * 0.4 - 0.2;
-        return <BowlDie key={i} x={dx} y={0.95} z={dz} face={d.face} kept={d.kept || d.selected} rot={rot} />;
+        return <BowlDie key={i} x={dx} y={0.95} z={dz} face={d.face} grantsFavor={d.grantsFavor} rot={rot} />;
       })}
       {/* Locked dice are removed from the bowl and placed beside it, visible to both players. */}
       {lockedDice.map((d, i) => {
@@ -384,7 +383,7 @@ export function Bowl({
         const dx = 1.35 + col * 0.46;
         const dz = (row - 0.5) * 0.46;
         const rot = ((d.id * 53) % 100) / 100 * 0.35 - 0.18;
-        return <BowlDie key={`locked-${d.id}`} x={dx} y={0.24} z={dz} face={d.face} kept rot={rot} />;
+        return <BowlDie key={`locked-${d.id}`} x={dx} y={0.24} z={dz} face={d.face} grantsFavor={d.grantsFavor} rot={rot} />;
       })}
     </group>
   );

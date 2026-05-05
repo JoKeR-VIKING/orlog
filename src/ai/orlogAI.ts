@@ -12,7 +12,7 @@ import type {
   PlayerSide,
   PlayerState,
 } from '../game/types';
-import { GOD_FAVORS, GOD_FAVOR_MAP } from '../game/types';
+import { GOD_FAVORS, GOD_FAVOR_MAP, sanitizeFavorLoadout } from '../game/types';
 
 export type Difficulty = 'skald' | 'vikingr' | 'berserkr';
 
@@ -28,38 +28,133 @@ export const DIFFICULTY_SUBTITLE: Record<Difficulty, string> = {
   berserkr: 'Frenzied master — reads the Norns and strikes true',
 };
 
+type Strategy = 'offense' | 'defense' | 'favor' | 'disrupt';
+
 function countFaces(dice: PlayerState['dice']): Record<DieFace, number> {
   const c: Record<DieFace, number> = {
-    axe: 0, arrow: 0, helmet: 0, shield: 0, steal: 0, earn: 0,
+    axe: 0, arrow: 0, helmet: 0, shield: 0, steal: 0,
   };
   dice.forEach((d) => (c[d.face] += 1));
   return c;
 }
 
-// Simple utility: score a die face's "value" in current game state for the AI player.
-function faceValue(
-  face: DieFace,
+function committedDice(player: PlayerState): PlayerState['dice'] {
+  return player.dice.filter((d) => d.kept || d.selected);
+}
+
+function chooseStrategy(
   me: PlayerState,
   opp: PlayerState,
+  myCommitted: Record<DieFace, number>,
+  oppCommitted: Record<DieFace, number>,
+  diff: Difficulty,
+): Strategy {
+  const incoming = Math.max(0, oppCommitted.axe - myCommitted.helmet) + Math.max(0, oppCommitted.arrow - myCommitted.shield);
+  const pressure = me.hp <= 6 || incoming >= 3;
+  const canThreatenFavor = opp.favor >= 4;
+  const behindOnFavor = me.favor + committedDice(me).filter((d) => d.grantsFavor).length < 4;
+  const lethalReach = opp.hp <= myCommitted.axe + myCommitted.arrow + 3;
+
+  if (diff === 'skald') {
+    if (pressure && Math.random() < 0.45) return 'defense';
+    if (behindOnFavor && Math.random() < 0.35) return 'favor';
+    if (canThreatenFavor && Math.random() < 0.25) return 'disrupt';
+    return Math.random() < 0.6 ? 'offense' : 'favor';
+  }
+
+  if (diff === 'vikingr') {
+    const good = lethalReach ? 'offense' : pressure ? 'defense' : canThreatenFavor ? 'disrupt' : behindOnFavor ? 'favor' : 'offense';
+    if (Math.random() < 0.18) {
+      const alternatives = (['offense', 'defense', 'favor', 'disrupt'] as Strategy[]).filter((s) => s !== good);
+      return alternatives[Math.floor(Math.random() * alternatives.length)];
+    }
+    return good;
+  }
+
+  if (lethalReach) return 'offense';
+  if (pressure) return 'defense';
+  if (canThreatenFavor) return 'disrupt';
+  if (behindOnFavor) return 'favor';
+  return 'offense';
+}
+
+function dieValue(
+  die: PlayerState['dice'][number],
+  me: PlayerState,
+  opp: PlayerState,
+  myCommitted: Record<DieFace, number>,
+  oppCommitted: Record<DieFace, number>,
+  strategy: Strategy,
   diff: Difficulty,
 ): number {
   const lowHp = me.hp <= 6;
   const winning = me.hp - opp.hp >= 3;
-  switch (face) {
+  const exactCounters = diff !== 'skald';
+  let value = die.grantsFavor ? (strategy === 'favor' ? 2.5 : me.favor < 6 ? 1.25 : 0.5) : 0;
+
+  switch (die.face) {
     case 'axe':
-      return 6 + (winning ? 2 : 0);
+      value += 3.5 + (strategy === 'offense' ? 2.5 : 0) + (oppCommitted.helmet === 0 ? 2.25 : -0.6 * oppCommitted.helmet) + (myCommitted.axe > 0 ? 1 : 0) + (winning ? 0.75 : 0);
+      break;
     case 'arrow':
-      return 5 + (winning ? 2 : 0);
+      value += 3.5 + (strategy === 'offense' ? 2.5 : 0) + (oppCommitted.shield === 0 ? 2.25 : -0.6 * oppCommitted.shield) + (myCommitted.arrow > 0 ? 1 : 0) + (winning ? 0.75 : 0);
+      break;
     case 'helmet':
-      return lowHp ? 7 : 4;
+      value += 2.75 + (strategy === 'defense' ? 2.5 : 0) + (exactCounters ? Math.min(oppCommitted.axe, 3) * 2.15 : Math.min(oppCommitted.axe, 2)) + (lowHp ? 1.5 : 0);
+      break;
     case 'shield':
-      return lowHp ? 7 : 4;
+      value += 2.75 + (strategy === 'defense' ? 2.5 : 0) + (exactCounters ? Math.min(oppCommitted.arrow, 3) * 2.15 : Math.min(oppCommitted.arrow, 2)) + (lowHp ? 1.5 : 0);
+      break;
     case 'steal':
-      return opp.favor >= 3 ? 5 : 2;
-    case 'earn':
-      // Higher value on berserkr since it's long-term strategic
-      return diff === 'berserkr' ? 5 : diff === 'vikingr' ? 4 : 3;
+      value += (strategy === 'disrupt' ? 4 : 0) + (opp.favor >= 5 ? 5.5 : opp.favor >= 3 ? 4.5 : opp.favor > 0 ? 3 : 1.5);
+      break;
   }
+  return value;
+}
+
+function desiredKeepIds(
+  snap: GameSnapshot,
+  side: PlayerSide,
+  diff: Difficulty,
+): number[] {
+  const me = snap[side];
+  const opp = snap[side === 'host' ? 'guest' : 'host'];
+  const myCommitted = countFaces(committedDice(me));
+  const oppCommitted = countFaces(committedDice(opp));
+  const strategy = chooseStrategy(me, opp, myCommitted, oppCommitted, diff);
+
+  const scores = me.dice.map((d) => ({
+    id: d.id,
+    face: d.face,
+    score: dieValue(d, me, opp, myCommitted, oppCommitted, strategy, diff),
+    kept: d.kept,
+  }));
+
+  if (diff === 'skald') {
+    return scores
+      .filter((s) => s.kept || s.score >= 7 || Math.random() < 0.32)
+      .map((s) => s.id);
+  }
+
+  if (diff === 'vikingr') {
+    const threshold = me.rollsLeft <= 1 ? 4.2 : 5.1;
+    return scores
+      .filter((s) => s.kept || (s.score >= threshold && Math.random() > 0.14))
+      .map((s) => s.id);
+  }
+
+  const threshold = me.rollsLeft <= 1 ? 3.8 : 5;
+  const keepIds = scores
+    .filter((s) => s.kept || s.score >= threshold)
+    .map((s) => s.id);
+  if (me.rollsLeft > 1 && keepIds.filter((id) => !me.dice[id].kept).length >= 5) {
+    return scores
+      .slice()
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((s) => s.id);
+  }
+  return keepIds;
 }
 
 // Decide which dice to KEEP (set kept=true) given the current roll and state.
@@ -71,55 +166,7 @@ export function aiPickKeeps(
   diff: Difficulty,
 ): number[] {
   const me = snap[side];
-  const opp = snap[side === 'host' ? 'guest' : 'host'];
-
-  const scores = me.dice.map((d) => ({
-    id: d.id,
-    face: d.face,
-    score: faceValue(d.face, me, opp, diff),
-    kept: d.kept,
-  }));
-
-  // Skald: keep ~30% at random-ish
-  if (diff === 'skald') {
-    const keepIds = scores
-      .filter(() => Math.random() < 0.35)
-      .map((s) => s.id);
-    // Always keep face with score>=7 (strong defensive) regardless of luck
-    scores.forEach((s) => {
-      if (s.score >= 7 && !keepIds.includes(s.id)) keepIds.push(s.id);
-    });
-    return diffKeeps(me, keepIds);
-  }
-
-  // Vikingr: keep anything with score>=5 but with 25% chance of skipping a keep (mistake)
-  if (diff === 'vikingr') {
-    const keepIds = scores
-      .filter((s) => s.score >= 5 && Math.random() > 0.25)
-      .map((s) => s.id);
-    return diffKeeps(me, keepIds);
-  }
-
-  // Berserkr: dynamic strategy.
-  // Goal: maximize synergy — commit to axes OR arrows based on opponent's block distribution.
-  const oppCounts = countFaces(opp.dice);
-  const preferAxe = oppCounts.helmet <= oppCounts.shield;
-  const keepIds: number[] = [];
-
-  scores.forEach((s) => {
-    let v = s.score;
-    if (preferAxe && s.face === 'axe') v += 3;
-    if (!preferAxe && s.face === 'arrow') v += 3;
-    if (me.hp <= 4 && (s.face === 'helmet' || s.face === 'shield')) v += 3;
-    if (v >= 6) keepIds.push(s.id);
-  });
-  // If almost all weak, keep nothing — reroll all
-  if (keepIds.length >= 5 && me.rollsLeft > 0) {
-    // Keep only the top 4 best to allow reroll of the 2 worst (unless 6/6 are >=6)
-    const sorted = scores.slice().sort((a, b) => b.score - a.score);
-    return diffKeeps(me, sorted.slice(0, 4).map((s) => s.id));
-  }
-  return diffKeeps(me, keepIds);
+  return diffKeeps(me, desiredKeepIds(snap, side, diff));
 }
 
 // Return die ids whose kept flag needs to be toggled to match desired keepIds set.
@@ -127,8 +174,9 @@ function diffKeeps(me: PlayerState, desiredKeep: number[]): number[] {
   const desired = new Set(desiredKeep);
   const toggles: number[] = [];
   me.dice.forEach((d) => {
+    if (d.kept) return;
     const want = desired.has(d.id);
-    if (want !== d.kept) toggles.push(d.id);
+    if (want !== d.selected) toggles.push(d.id);
   });
   return toggles;
 }
@@ -144,24 +192,29 @@ export function aiRollDecision(
   // If every die is kept, we cannot reroll anyway
   if (me.dice.every((d) => d.kept)) return 'stand';
 
-  const scores = me.dice.map((d) => faceValue(d.face, me, snap[side === 'host' ? 'guest' : 'host'], diff));
-  const rerollableLow = scores.filter((s, i) => !me.dice[i].kept && s <= 3).length;
+  const opp = snap[side === 'host' ? 'guest' : 'host'];
+  const myCommitted = countFaces(committedDice(me));
+  const oppCommitted = countFaces(committedDice(opp));
+  const strategy = chooseStrategy(me, opp, myCommitted, oppCommitted, diff);
+  const scores = me.dice.map((d) => dieValue(d, me, opp, myCommitted, oppCommitted, strategy, diff));
+  const rerollableLow = scores.filter((s, i) => !me.dice[i].kept && !me.dice[i].selected && s <= 3.75).length;
+  const selectedNow = me.dice.filter((d) => d.kept || d.selected).length;
 
   if (diff === 'skald') {
-    // 55% reroll if anything rerollable, random otherwise
+    if (me.rollsLeft <= 1) return 'stand';
     if (rerollableLow >= 2) return Math.random() < 0.7 ? 'reroll' : 'stand';
     return Math.random() < 0.4 ? 'reroll' : 'stand';
   }
   if (diff === 'vikingr') {
-    // Reroll if >=2 low-score dice, with 15% mistake
+    if (me.rollsLeft <= 1) return 'stand';
+    if (selectedNow >= 5) return Math.random() < 0.85 ? 'stand' : 'reroll';
     if (rerollableLow >= 2 && Math.random() > 0.15) return 'reroll';
     return 'stand';
   }
-  // berserkr
-  const unkept = me.dice.filter((d) => !d.kept).length;
-  // If we have rolls left and there are >=2 unkept dice, prefer reroll unless on last roll with decent pool
-  if (me.rollsLeft >= 2 && unkept >= 2) return 'reroll';
-  if (me.rollsLeft === 1 && rerollableLow >= 2) return 'reroll';
+
+  if (me.rollsLeft <= 1) return 'stand';
+  if (selectedNow >= 5) return 'stand';
+  if (rerollableLow >= 1) return 'reroll';
   return 'stand';
 }
 
@@ -175,51 +228,78 @@ export function aiPickFavors(
   const opp = snap[side === 'host' ? 'guest' : 'host'];
   const counts = countFaces(me.dice);
   const oppCounts = countFaces(opp.dice);
+  const expectedIncoming = Math.max(0, oppCounts.axe - counts.helmet) + Math.max(0, oppCounts.arrow - counts.shield);
+  const expectedOutgoing = Math.max(0, counts.axe - oppCounts.helmet) + Math.max(0, counts.arrow - oppCounts.shield);
+  const favorAfterDice = me.favor + me.dice.filter((d) => d.grantsFavor).length + Math.min(counts.steal, opp.favor);
+  const oppFavorAfterDice = Math.max(0, opp.favor - counts.steal) + opp.dice.filter((d) => d.grantsFavor).length + Math.min(oppCounts.steal, me.favor);
 
   // Score each favor's value in the current state
   const candidates: { god: GodFavor; score: number }[] = [];
-  GOD_FAVORS.forEach((g) => {
+  const available = new Set(sanitizeFavorLoadout(me.availableFavors));
+  GOD_FAVORS.filter((g) => available.has(g.id)).forEach((g) => {
     let s = 0;
     switch (g.id) {
       case 'thor':
-        s = 6 + (opp.hp <= 4 ? 8 : 0); // finisher
+        s = expectedOutgoing + (opp.hp <= expectedOutgoing + 2 ? 10 : 0) + (opp.hp <= 6 ? 3 : 0);
         break;
       case 'idun':
-        s = me.hp <= 6 ? 7 : me.hp <= 10 ? 4 : 0;
+        s = me.hp <= 5 ? 6 : me.hp <= 9 && expectedIncoming > 0 ? 4 : expectedIncoming >= 4 ? 3 : 0;
         break;
       case 'baldr':
-        s = (counts.helmet + counts.shield) >= 2 ? (counts.helmet + counts.shield) * 1.5 : 0;
+        s = (counts.helmet + counts.shield) >= 2 && expectedIncoming > 0 ? (counts.helmet + counts.shield) * 1.8 + expectedIncoming : 0;
         break;
       case 'skadi':
-        s = counts.arrow >= 2 ? counts.arrow * 2 : 0;
+        s = counts.arrow >= 2 ? counts.arrow * 2 + Math.max(0, counts.arrow - oppCounts.shield) : 0;
         break;
       case 'vidar':
-        s = (oppCounts.helmet + oppCounts.shield) >= 3 && (counts.axe + counts.arrow) >= 3 ? 6 : 1;
+        s = oppCounts.helmet >= 1 && counts.axe >= 1 ? 4 + Math.min(2, oppCounts.helmet) : 0;
         break;
       case 'mimir':
-        s = me.hp <= 10 ? 3 : 1;
+        s = expectedIncoming >= 2 ? expectedIncoming * 1.2 + (me.hp <= 8 ? 1 : 0) : 0;
+        break;
+      case 'ullr':
+        s = counts.arrow > 0 && oppCounts.shield > 0 ? 3 + Math.min(counts.arrow, oppCounts.shield, 2) * 2 : 0;
+        break;
+      case 'brunhild':
+        s = counts.axe >= 2 ? counts.axe * 1.8 + Math.max(0, counts.axe - oppCounts.helmet) : 0;
+        break;
+      case 'freyr': {
+        const majority = Math.max(counts.axe, counts.arrow, counts.helmet, counts.shield, counts.steal);
+        s = majority >= 2 ? 3 + majority : 0;
+        break;
+      }
+      case 'loki':
+        s = Math.max(oppCounts.axe, oppCounts.arrow, oppCounts.steal) >= 1 ? 2.5 + expectedIncoming : 0;
+        break;
+      case 'heimdall':
+        s = counts.helmet + counts.shield >= 2 && expectedIncoming > 0 ? 3 + Math.min(expectedIncoming, counts.helmet + counts.shield) : 0;
+        break;
+      case 'hel':
+        s = Math.max(0, counts.axe - oppCounts.helmet) >= 1 && me.hp <= 10 ? 3 + Math.max(0, counts.axe - oppCounts.helmet) : 0;
+        break;
+      case 'skuld':
+        s = counts.arrow >= 1 && opp.favor >= 3 ? 3 + counts.arrow * 1.5 + Math.min(opp.favor, counts.arrow * 2) : 0;
         break;
     }
+    if (oppFavorAfterDice >= 5 && g.id !== 'idun') s += 0.5;
+    if (favorAfterDice < g.cost) s -= 1;
     candidates.push({ god: g, score: s });
   });
 
   candidates.sort((a, b) => b.score - a.score);
 
   const picks: string[] = [];
-  let budget = me.favor;
 
-  const randomness = diff === 'skald' ? 0.55 : diff === 'vikingr' ? 0.18 : 0.04;
+  const randomness = diff === 'skald' ? 0.7 : diff === 'vikingr' ? 0.18 : 0;
 
   for (const c of candidates) {
     if (c.score <= 0) continue;
-    if (budget < c.god.cost) continue;
-    // Skald rarely casts favors (adds randomness)
+    if (me.favor < c.god.cost) continue;
     if (Math.random() < randomness) continue;
-    // Difficulty-weighted threshold
-    const threshold = diff === 'skald' ? 4 : diff === 'vikingr' ? 3 : 2;
+    const threshold = diff === 'skald' ? 6 : diff === 'vikingr' ? 3.5 : 1.5;
     if (c.score < threshold) continue;
     picks.push(c.god.id);
-    budget -= c.god.cost;
+    break;
   }
   return picks;
 }
@@ -249,15 +329,18 @@ export function generatePlayerActions(
     // Avoid doing anything while rolling animation is playing
     if (me.rolling) return actions;
     if (me.ready) return actions;
+    if (!me.turnRolled) {
+      actions.push({ kind: 'reroll' });
+      return actions;
+    }
 
-    // First decide keeps
-    const toggles = aiPickKeeps(snap, side, diff);
-    toggles.forEach((id) => actions.push({ kind: 'toggle_keep', dieId: id }));
-
-    // Then reroll or stand
     const decision = aiRollDecision(snap, side, diff);
-    if (decision === 'reroll') actions.push({ kind: 'reroll' });
-    else actions.push({ kind: 'stand' });
+    const desired = decision === 'stand'
+      ? me.dice.map((d) => d.id)
+      : desiredKeepIds(snap, side, diff);
+    const toggles = diffKeeps(me, desired);
+    toggles.forEach((id) => actions.push({ kind: 'toggle_keep', dieId: id }));
+    actions.push({ kind: 'stand' });
   } else if (snap.phase === 'favor') {
     const me = snap[side];
     if (me.favorReady) return actions;
