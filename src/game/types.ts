@@ -12,59 +12,64 @@ export const DIE_FACE_ORDER: DieFace[] = [
 export interface DieRoll {
   face: DieFace;
   grantsFavor: boolean;
+  sideIndex: number;
 }
 
 export type PhysicalDie = readonly DieRoll[];
 
+function definePhysicalDie(sides: Omit<DieRoll, 'sideIndex'>[]): PhysicalDie {
+  return sides.map((side, sideIndex) => ({ ...side, sideIndex }));
+}
+
 export const PHYSICAL_DICE: readonly PhysicalDie[] = [
-  [
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: true },
     { face: 'helmet', grantsFavor: false },
     { face: 'shield', grantsFavor: false },
     { face: 'steal', grantsFavor: false },
     { face: 'axe', grantsFavor: false },
-  ],
-  [
+  ]),
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: false },
     { face: 'helmet', grantsFavor: false },
     { face: 'shield', grantsFavor: true },
     { face: 'steal', grantsFavor: true },
     { face: 'axe', grantsFavor: false },
-  ],
-  [
+  ]),
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: true },
     { face: 'helmet', grantsFavor: true },
     { face: 'shield', grantsFavor: false },
     { face: 'steal', grantsFavor: false },
     { face: 'axe', grantsFavor: false },
-  ],
-  [
+  ]),
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: false },
     { face: 'helmet', grantsFavor: true },
     { face: 'shield', grantsFavor: false },
     { face: 'steal', grantsFavor: true },
     { face: 'axe', grantsFavor: false },
-  ],
-  [
+  ]),
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: true },
     { face: 'helmet', grantsFavor: false },
     { face: 'shield', grantsFavor: true },
     { face: 'steal', grantsFavor: false },
     { face: 'axe', grantsFavor: false },
-  ],
-  [
+  ]),
+  definePhysicalDie([
     { face: 'axe', grantsFavor: false },
     { face: 'arrow', grantsFavor: false },
     { face: 'helmet', grantsFavor: true },
     { face: 'shield', grantsFavor: true },
     { face: 'steal', grantsFavor: false },
     { face: 'axe', grantsFavor: false },
-  ],
+  ]),
 ];
 
 // A single die in a player's pool
@@ -72,6 +77,7 @@ export interface Die {
   id: number; // 0..5 within the player's 6 dice
   face: DieFace;
   grantsFavor: boolean; // golden border: earns 1 favor while still using the face logic
+  sideIndex: number; // which physical side is currently on top
   kept: boolean; // kept between rerolls
   selected: boolean; // selected during the current lock action, not committed yet
 }

@@ -7,6 +7,7 @@ type SoundName =
   | 'shake'
   | 'cupCover'
   | 'diceReveal'
+  | 'block'
   | 'damage'
   | 'heal'
   | 'victory'
@@ -58,6 +59,7 @@ class AudioEngine {
         case 'shake': this.shakeSfx(ctx); break;
         case 'cupCover': this.cupCoverSfx(ctx); break;
         case 'diceReveal': this.diceRevealSfx(ctx); break;
+        case 'block': this.blockSfx(ctx); break;
         case 'damage': this.damageSfx(ctx); break;
         case 'heal': this.healSfx(ctx); break;
         case 'victory': this.victorySfx(ctx); break;
@@ -220,6 +222,31 @@ class AudioEngine {
     g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
     o.connect(g).connect(this.master!);
     o.start(t); o.stop(t + 0.4);
+  }
+
+  private blockSfx(ctx: AudioContext) {
+    const t = ctx.currentTime;
+    const wood = ctx.createOscillator();
+    const woodGain = ctx.createGain();
+    wood.type = 'triangle';
+    wood.frequency.setValueAtTime(210, t);
+    wood.frequency.exponentialRampToValueAtTime(92, t + 0.18);
+    woodGain.gain.setValueAtTime(0.18, t);
+    woodGain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    wood.connect(woodGain).connect(this.master!);
+    wood.start(t);
+    wood.stop(t + 0.25);
+
+    const ring = ctx.createOscillator();
+    const ringGain = ctx.createGain();
+    ring.type = 'square';
+    ring.frequency.setValueAtTime(860, t + 0.01);
+    ring.frequency.exponentialRampToValueAtTime(280, t + 0.12);
+    ringGain.gain.setValueAtTime(0.08, t + 0.01);
+    ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    ring.connect(ringGain).connect(this.master!);
+    ring.start(t + 0.01);
+    ring.stop(t + 0.16);
   }
 
   private healSfx(ctx: AudioContext) {

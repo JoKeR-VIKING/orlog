@@ -248,7 +248,7 @@ function runResolutionSequence(
   index: number,
 ) {
   if (index >= steps.length) {
-    setTimeout(() => finishResolution(get, set), 900);
+    setTimeout(() => finishResolution(get, set), 1200);
     return;
   }
 
@@ -261,10 +261,28 @@ function runResolutionSequence(
     set({ snap: structuredClone(snap) });
     broadcastSnapshot(get);
     playResolutionFloater(set, applied);
+    if (applied.kind === 'attack' && applied.blocked > 0) audio.play('block');
     if ((applied.kind === 'attack' && applied.damage > 0) || (applied.kind === 'god' && applied.targetHpDelta < 0)) audio.play('damage');
     if (applied.kind === 'favor' || (applied.kind === 'steal' && applied.stolen > 0)) audio.play('diceReveal');
+    if (winner(snap)) {
+      setTimeout(() => finishResolution(get, set), 1100);
+      return;
+    }
     runResolutionSequence(get, set, steps, index + 1);
-  }, index === 0 ? 500 : 1350);
+  }, index === 0 ? 700 : stepDelay(steps[index - 1]));
+}
+
+function stepDelay(step: ResolutionStep): number {
+  switch (step.kind) {
+    case 'attack':
+      return 2100;
+    case 'god':
+      return 1850;
+    case 'steal':
+      return 1750;
+    case 'favor':
+      return 1650;
+  }
 }
 
 // ---- AI scheduling ----

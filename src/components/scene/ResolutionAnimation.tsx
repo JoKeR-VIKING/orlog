@@ -127,8 +127,8 @@ function FlyingWeapon({
 
   useFrame(({ clock }) => {
     if (startedAt.current === null) startedAt.current = clock.elapsedTime;
-    const elapsed = clock.elapsedTime - startedAt.current - index * 0.12;
-    const progress = clamp01(elapsed / 0.78);
+    const elapsed = clock.elapsedTime - startedAt.current - index * 0.16;
+    const progress = clamp01(elapsed / 1.08);
     const eased = easeOutCubic(progress);
     const arc = Math.sin(progress * Math.PI) * 0.6;
 
@@ -141,7 +141,7 @@ function FlyingWeapon({
     }
 
     if (impactRef.current) {
-      const pulse = clamp01((elapsed - 0.58) / 0.3);
+      const pulse = clamp01((elapsed - 0.8) / 0.34);
       impactRef.current.position.copy(end);
       impactRef.current.scale.setScalar(0.2 + pulse * 1.15);
       const material = impactRef.current.material;
@@ -219,8 +219,8 @@ function CenterDie({
         x={x}
         y={active ? 0.46 : 0.34}
         z={z}
-        face={die.face}
-        grantsFavor={die.grantsFavor}
+        dieId={die.id}
+        sideIndex={die.sideIndex}
         rot={die.id * 0.13 - 0.3}
       />
     </group>
@@ -293,13 +293,15 @@ export function ResolutionAnimation({
     return Array.from({ length: step.attack }, (_, i) => {
       const blocked = i < step.blocked;
       const startX = spreadX(i, step.attack);
-      const endX = blocked ? spreadX(i, Math.max(step.blocked, 1)) : spreadX(i - step.blocked, Math.max(step.damage, 1), 0.34);
+      const damageIndex = i - step.blocked;
+      const endX = blocked ? spreadX(i, Math.max(step.blocked, 1)) : spreadX(damageIndex, Math.max(step.damage, 1), 0.34);
+      const end = new THREE.Vector3(endX, 1.35, blocked ? blockRowZ : hpRowZ);
       return {
         id: `${step.id}-${i}`,
         index: i,
         blocked,
         start: new THREE.Vector3(startX, 1.35, attackRowZ),
-        end: new THREE.Vector3(endX, 1.35, blocked ? blockRowZ : hpRowZ),
+        end,
       };
     });
   }, [guestZ, hostZ, step]);

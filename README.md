@@ -1,3 +1,5 @@
 ![ORLOG visual guide](docs/assets/orlog-readme.svg)
 
-### [ORLOG Detailed guide](https://assassinscreed.fandom.com/wiki/Orlog)
+For detailed Orlog rules and background, see the wiki page:
+
+### [Orlog Wiki](https://assassinscreed.fandom.com/wiki/Orlog)

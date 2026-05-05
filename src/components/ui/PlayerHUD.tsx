@@ -1,6 +1,4 @@
 import type { PlayerState, PlayerSide } from '../../game/types';
-import { MAX_HP } from '../../game/engine';
-
 interface Props {
   player: PlayerState;
   side: PlayerSide;
@@ -11,48 +9,37 @@ interface Props {
 }
 
 export function PlayerHUD({ player, side, isSelf, active, floaters, align }: Props) {
-  const stones = Array.from({ length: MAX_HP }, (_, i) => i < player.hp);
   const testSide = side;
   return (
     <div
-      className={`wood-panel relative p-3 md:p-4 w-64 md:w-72 ${active ? 'pulse-glow' : ''}`}
+      className={`wood-panel relative px-2.5 py-2 md:px-3 md:py-2.5 w-48 md:w-56 ${active ? 'pulse-glow' : ''}`}
       data-testid={`player-hud-${testSide}`}
       style={{ textAlign: align }}
     >
       <div className="flex items-center justify-between gap-2">
         <div
-          className="heading-carved text-lg md:text-xl truncate"
+          className="heading-carved text-sm md:text-base truncate"
           data-testid={`player-name-${testSide}`}
         >
           {player.name || (side === 'host' ? 'Host' : 'Guest')}
-          {isSelf && <span className="ml-2 text-xs text-[var(--color-gold)] tracking-widest">(YOU)</span>}
+          {isSelf && <span className="ml-1.5 text-[10px] text-[var(--color-gold)] tracking-widest">(YOU)</span>}
         </div>
-        <div className="flex items-center gap-1">
-          <span className="favor-token" title={`${player.favor} favor`}>⌘</span>
-          <span className="text-[var(--color-gold)] heading-carved text-lg" data-testid={`player-favor-${testSide}`}>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="favor-token scale-85" title={`${player.favor} favor`}>⌘</span>
+          <span className="text-[var(--color-gold)] heading-carved text-sm md:text-base" data-testid={`player-favor-${testSide}`}>
             {player.favor}
           </span>
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-[3px] max-w-full" data-testid={`player-hp-${testSide}`}>
-        {stones.map((alive, i) => (
-          <div key={i} className={`hp-stone ${alive ? '' : 'lost'}`} title={`HP ${i + 1}`} />
-        ))}
-      </div>
-      <div className="mt-1 text-xs text-[var(--color-text-secondary)] tracking-wider">
-        <span>HP </span>
-        <span className="text-[var(--color-text-primary)] font-semibold">{player.hp}</span>
-        <span> / {MAX_HP}</span>
-      </div>
 
       {/* floaters */}
-      <div className="absolute -top-4 left-0 right-0 pointer-events-none">
+      <div className="absolute -top-3 left-0 right-0 pointer-events-none">
         {floaters
           .filter((f) => f.side === side)
           .map((f) => (
             <div
               key={f.id}
-              className={`float-up heading-carved text-2xl md:text-3xl font-bold ${
+              className={`float-up heading-carved text-xl md:text-2xl font-bold ${
                 f.kind === 'dmg'
                   ? 'text-[var(--color-accent)]'
                   : f.kind === 'heal'

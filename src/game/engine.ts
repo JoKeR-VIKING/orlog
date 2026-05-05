@@ -27,6 +27,7 @@ export function freshPlayer(name: string): PlayerState {
       id: i,
       face: 'axe' as DieFace,
       grantsFavor: false,
+      sideIndex: 0,
       kept: false,
       selected: false,
     })),
@@ -75,8 +76,9 @@ export function rollSix(seed: string, prefix: string): DieRoll[] {
   const rng = createRNG(`${seed}:${prefix}`);
   return Array.from({ length: DICE_COUNT }, (_, dieIndex) => {
     const sides = PHYSICAL_DICE[dieIndex];
-    const side = sides[Math.floor(rng() * sides.length)];
-    return { ...side };
+    const sideIndex = Math.floor(rng() * sides.length);
+    const side = sides[sideIndex];
+    return { ...side, sideIndex };
   });
 }
 
@@ -86,6 +88,7 @@ export function applyRollForPlayer(player: PlayerState, rolls: DieRoll[], initia
     if (initial || !player.dice[i].kept) {
       player.dice[i].face = rolls[i].face;
       player.dice[i].grantsFavor = rolls[i].grantsFavor;
+      player.dice[i].sideIndex = rolls[i].sideIndex;
       player.dice[i].selected = false;
     }
   }
