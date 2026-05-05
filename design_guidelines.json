@@ -1,0 +1,166 @@
+{
+  "theme": "dark",
+  "archetype": "5 (Jewel & Luxury)",
+  "vibe": "Cinematic, tactile, worn, viking-era artifact, 800 AD",
+  "colors": {
+    "background": {
+      "primary": "#1A1412",
+      "secondary": "#2A2320",
+      "surface": "#382D28",
+      "parchment": "#D4C4A8"
+    },
+    "text": {
+      "primary": "#E8DCC4",
+      "secondary": "#A89B8C",
+      "accent": "#C44536",
+      "dark": "#2B211E"
+    },
+    "brand": {
+      "blood_red": "#8B261D",
+      "gold_amber": "#C68234",
+      "iron_steel": "#4A4E53",
+      "forest_green": "#2C402B",
+      "bone": "#E3D5C1"
+    },
+    "border": {
+      "default": "#3A302A",
+      "iron": "#2D3136"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "headings": "'Cormorant Unicase', serif",
+      "body": "'EB Garamond', serif",
+      "runic_accents": "Optional Elder Futhark Web Font or standard sans mapped to runes"
+    },
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-widest uppercase drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]",
+      "h2": "text-3xl sm:text-4xl tracking-wider uppercase",
+      "h3": "text-xl sm:text-2xl tracking-wide",
+      "body": "text-base leading-relaxed",
+      "overline": "text-sm tracking-[0.3em] uppercase text-[#C68234]"
+    },
+    "effects": {
+      "embossed": "text-shadow: 1px 1px 0px rgba(255,255,255,0.1), -1px -1px 0px rgba(0,0,0,0.8);"
+    }
+  },
+  "spacing_and_layout": {
+    "grid_system": "Bento 'Tetris' for home/lobby screens. Absolute positioning over R3F canvas for game screen.",
+    "paddings": "p-4 sm:p-8 lg:p-12",
+    "gaps": "gap-4 sm:gap-8",
+    "borders": "rounded-sm (Subtle roundness, no highly rounded corners. 2px to 4px max for authentic cut stone/wood feel)."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#8B261D] text-[#E8DCC4] border border-[#2D3136] rounded-sm uppercase tracking-widest shadow-[inset_0_0_10px_rgba(0,0,0,0.5),0_4px_6px_rgba(0,0,0,0.4)] hover:bg-[#A63025] hover:shadow-[0_0_15px_rgba(198,130,52,0.6)] transition-all duration-300",
+      "secondary": "bg-[#2A2320] text-[#E8DCC4] border-2 border-[#4A4E53] rounded-sm uppercase tracking-widest shadow-[0_2px_4px_rgba(0,0,0,0.5)] hover:bg-[#382D28] hover:border-[#E8DCC4] transition-all duration-300"
+    },
+    "cards": {
+      "god_favor": "bg-[#1A1412] text-[#E8DCC4] border-2 border-[#2D3136] rounded-sm p-4 relative overflow-hidden bg-cover bg-center shadow-[0_10px_20px_rgba(0,0,0,0.6)]",
+      "god_favor_texture": "Use parchment or dark stone background images with opacity blend.",
+      "hud_panel": "bg-[#2A2320]/90 backdrop-blur-sm border border-[#4A4E53] rounded-sm p-4 shadow-lg flex flex-col gap-2"
+    },
+    "inputs": {
+      "session_code": "bg-[#1A1412] text-[#E8DCC4] border border-[#4A4E53] rounded-sm p-3 font-mono text-center tracking-[0.5em] focus:border-[#C68234] focus:ring-1 focus:ring-[#C68234] outline-none"
+    }
+  },
+  "motion_and_interactions": {
+    "libraries_recommended": [
+      "@react-spring/web",
+      "framer-motion (optional for UI)"
+    ],
+    "animations": {
+      "page_entry": "Staggered fade-up reveal for menu items.",
+      "dice_flip": "React-spring 3D rotation on the X/Y axes during reveal.",
+      "bowl_lift": "React-spring translateY and rotateX to reveal dice beneath.",
+      "damage_numbers": "Float up and fade out (translateY -20px, opacity 0 -> 1 -> 0 over 2s).",
+      "hp_stone_loss": "Scale down to 0 and opacity fade. Optional particle burst."
+    }
+  },
+  "icons_and_dice_faces": {
+    "library": "lucide-react (until custom SVGs are loaded)",
+    "mapping": {
+      "melee_damage": "Axe",
+      "ranged_damage": "Navigation (looks like arrowhead) or Crosshair",
+      "melee_block": "Shield",
+      "ranged_block": "ShieldHalf",
+      "steal_favor": "Hand",
+      "earn_favor": "Gem or Hexagon"
+    }
+  },
+  "media": {
+    "textures": [
+      {
+        "category": "dark_wood_table",
+        "description": "Deep mahogany wood grain, use for 3D table texture or background overlay",
+        "url": "https://images.unsplash.com/photo-1736506159893-22cca29b8018?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwyfHxkYXJrJTIwd29vZCUyMHRleHR1cmV8ZW58MHx8fHwxNzc3OTEwOTQ3fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "wood_panel",
+        "description": "Aged brown wooden board for UI panels",
+        "url": "https://images.unsplash.com/photo-1525947088131-b701cd0f6dc3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxkYXJrJTIwd29vZCUyMHRleHR1cmV8ZW58MHx8fHwxNzc3OTEwOTQ3fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "parchment",
+        "description": "Old paper texture for God Favor cards or rules",
+        "url": "https://images.unsplash.com/photo-1702753389740-32bace4ab050?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwyfHxvbGQlMjBwYXJjaG1lbnR8ZW58MHx8fHwxNzc3OTEwOTQ3fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "runestone",
+        "description": "Dark stone texture for background or specific stone elements",
+        "url": "https://images.unsplash.com/photo-1658997377776-5ca0308435e8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwxfHxydW5lc3RvbmV8ZW58MHx8fHwxNzc3OTEwOTQ3fDA&ixlib=rb-4.1.0&q=85"
+      }
+    ],
+    "sfx_hints": [
+      "Low brass horn on session start",
+      "Dull wooden clacks for dice rolls",
+      "Soft tribal drum loop ambient for background"
+    ]
+  },
+  "testing": {
+    "attributes": [
+      {
+        "element": "Create Session Button",
+        "testid": "create-session-button"
+      },
+      {
+        "element": "Join Session Input",
+        "testid": "join-session-input"
+      },
+      {
+        "element": "Join Session Button",
+        "testid": "join-session-button"
+      },
+      {
+        "element": "Copy Code Button",
+        "testid": "copy-code-button"
+      },
+      {
+        "element": "Roll Dice Button",
+        "testid": "roll-dice-button"
+      },
+      {
+        "element": "Dice Element",
+        "testid": "dice-item-{index}"
+      },
+      {
+        "element": "God Favor Card",
+        "testid": "god-favor-card-{id}"
+      },
+      {
+        "element": "End Screen Rematch",
+        "testid": "rematch-button"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install and configure 'Cormorant Unicase' and 'EB Garamond' from Google Fonts.",
+    "Use Vite, React, and Tailwind as requested. App is an SPA with Supabase for multiplayer sync.",
+    "Set up @react-spring/web for 3D physics illusions and animations, no actual physics library needed for dice shaking.",
+    "Apply the wood textures as background overlays with CSS mix-blend-mode (multiply or overlay) to give panels a tactile feel.",
+    "For the 3D scene (react-three-fiber), use a top-down angled camera. Map the dark wood texture to a PlaneGeometry for the table.",
+    "Implement the 'embossed' text shadow heavily on headings to simulate runic carvings.",
+    "Ensure all buttons use the 'primary' or 'secondary' carved wood classes defined above.",
+    "Ensure standard components do NOT look like default shadcn/Vercel styling. Strip standard borders and radii to fit the worn, cinematic 800AD vibe."
+  ]
+}

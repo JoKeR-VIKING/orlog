@@ -1,18 +1,17 @@
-import { useGameStore } from './store/useGameStore.ts';
-import GameScene from './scenes/GameScene.tsx';
+import { useStore } from './store/useGameStore';
+import HomeScreen from './screens/HomeScreen';
+import LobbyScreen from './screens/LobbyScreen';
+import GameScreen from './screens/GameScreen';
+import EndScreen from './screens/EndScreen';
 
 function App() {
-  const roll = useGameStore((s) => s.roll);
-
+  const view = useStore((s) => s.view);
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <button
-        onClick={roll}
-        style={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}
-      >
-        Roll
-      </button>
-      <GameScene />
+    <div className="w-full h-full relative" data-testid="app-root">
+      {view === 'home' && <HomeScreen />}
+      {view === 'lobby' && <LobbyScreen />}
+      {view === 'game' && <GameScreen />}
+      {view === 'end' && <EndScreen />}
     </div>
   );
 }
