@@ -1,4 +1,6 @@
 import type { PlayerState, PlayerSide } from '../../game/types';
+import { MAX_HP } from '../../game/engine';
+
 interface Props {
   player: PlayerState;
   side: PlayerSide;
@@ -10,6 +12,8 @@ interface Props {
 
 export function PlayerHUD({ player, side, isSelf, active, floaters, align }: Props) {
   const testSide = side;
+  const mobileGems = Array.from({ length: 5 }, (_, index) => index < Math.ceil((player.hp / MAX_HP) * 5));
+
   return (
     <div
       className={`wood-panel relative px-2.5 py-2 md:px-3 md:py-2.5 w-48 md:w-56 ${active ? 'pulse-glow' : ''}`}
@@ -17,12 +21,22 @@ export function PlayerHUD({ player, side, isSelf, active, floaters, align }: Pro
       style={{ textAlign: align }}
     >
       <div className="flex items-center justify-between gap-2">
-        <div
-          className="heading-carved text-sm md:text-base truncate"
-          data-testid={`player-name-${testSide}`}
-        >
-          {player.name || (side === 'host' ? 'Host' : 'Guest')}
-          {isSelf && <span className="ml-1.5 text-[10px] text-[var(--color-gold)] tracking-widest">(YOU)</span>}
+        <div className="min-w-0">
+          <div
+            className="heading-carved text-sm md:text-base truncate"
+            data-testid={`player-name-${testSide}`}
+          >
+            {player.name || (side === 'host' ? 'Host' : 'Guest')}
+            {isSelf && <span className="ml-1.5 text-[10px] text-[var(--color-gold)] tracking-widest">(YOU)</span>}
+          </div>
+          <div className="mobile-hud-health" aria-label={`${player.hp} of ${MAX_HP} health`}>
+            <span className="mobile-health-gems">
+              {mobileGems.map((alive, index) => (
+                <span key={index} className={`mobile-health-gem ${alive ? 'alive' : ''}`} />
+              ))}
+            </span>
+            <span className="mobile-health-count">{player.hp}/{MAX_HP}</span>
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <span className="favor-token scale-85" title={`${player.favor} favor`}>⌘</span>
