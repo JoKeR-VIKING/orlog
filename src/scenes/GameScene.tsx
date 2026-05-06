@@ -1,23 +1,36 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { ResolutionAnimation } from '../components/scene/ResolutionAnimation';
 import { Bowl, Cup, Table } from '../components/scene/TableAndBowls';
 import { MAX_ROLLS, useStore } from '../store/useGameStore';
 import type { Die, PlayerSide } from '../game/types';
 
-function CameraRig() {
+function useIsNarrowScreen() {
+  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 720px)');
+    const update = () => setNarrow(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return narrow;
+}
+
+function CameraRig({ narrow }: { narrow: boolean }) {
   const camera = useThree((state) => state.camera);
   useEffect(() => {
-    camera.position.set(0, 13, 12);
+    camera.position.set(0, narrow ? 14.4 : 13, narrow ? 13.3 : 12);
     camera.lookAt(0, 0, 0);
     camera.updateProjectionMatrix();
-  }, [camera]);
+  }, [camera, narrow]);
   return null;
 }
 
 export default function GameScene() {
   const snap = useStore((s) => s.snap);
   const selfSide = useStore((s) => s.selfSide);
+  const narrow = useIsNarrowScreen();
   const selfIsHost = selfSide === 'host';
   const hostZ = selfIsHost ? 2.2 : -2.2;
   const guestZ = selfIsHost ? -2.2 : 2.2;
@@ -36,8 +49,9 @@ export default function GameScene() {
 
   return (
     <Canvas
+      key={narrow ? 'narrow' : 'wide'}
       shadows
-      camera={{ position: [0, 13, 12], fov: 28 }}
+      camera={{ position: [0, narrow ? 14.4 : 13, narrow ? 13.3 : 12], fov: narrow ? 34 : 28 }}
       dpr={[1, 2]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       style={{ background: 'transparent' }}
@@ -60,7 +74,7 @@ export default function GameScene() {
       <pointLight position={[0, 3.4, 0]} intensity={1.25} color="#c68234" distance={11} />
       <pointLight position={[0, 2.4, 3.2]} intensity={1.0} color="#f0b46a" distance={8} />
       <pointLight position={[-3.6, 2.1, 2.8]} intensity={0.55} color="#9f3228" distance={7} />
-      <CameraRig />
+      <CameraRig narrow={narrow} />
       <Table />
       <Bowl player={snap.host} x={0} z={hostZ} isDieVisible={(die) => isDieVisible('host', die)} />
       <Bowl player={snap.guest} x={0} z={guestZ} isDieVisible={(die) => isDieVisible('guest', die)} />

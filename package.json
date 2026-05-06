@@ -6,6 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "android:assets": "node scripts/generate-android-assets.mjs",
+    "android:add": "cap add android",
+    "android:sync": "pnpm android:assets && pnpm build && cap sync android",
+    "android:debug": "pnpm android:sync && cd android && ./gradlew assembleDebug",
+    "android:bundle": "pnpm android:sync && cd android && ./gradlew bundleRelease",
+    "android:open": "cap open android",
     "capture:readme": "node scripts/capture-readme-screenshots.mjs",
     "lint": "eslint .",
     "format": "prettier . --write",
@@ -13,6 +19,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@react-spring/three": "^10.0.3",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
@@ -26,6 +34,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.1",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.2.4",

@@ -67,19 +67,19 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <div className="relative w-full h-full overflow-auto">
-      <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-10 md:gap-14 items-center min-h-full">
+    <div className="orlog-home-screen relative w-full h-full overflow-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-12 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-10 md:gap-14 items-center min-h-full">
         <div className="fade-up">
           <div className="rune-divider text-sm mb-4">
             <span>ᛟ ᚱ ᛚ ᛟ ᚷ</span>
           </div>
-          <div className="flex items-center gap-4 md:gap-5">
+          <div className="flex items-center gap-3 md:gap-5">
             <img
               src="/orlog-logo.svg"
               alt="ORLOG"
-              className="w-20 h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
             />
-            <h1 className="heading-carved text-5xl md:text-7xl font-bold text-[var(--color-text-primary)] leading-[1.05]">
+            <h1 className="heading-carved text-4xl sm:text-5xl md:text-7xl font-bold text-[var(--color-text-primary)] leading-[1.05]">
               ORLOG
             </h1>
           </div>

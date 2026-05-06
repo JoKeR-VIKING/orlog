@@ -46,7 +46,7 @@ function FavorStatue({
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
-      onClick={() => setOpen((current) => !current)}
+      onClick={() => setOpen(true)}
     >
       <div className="favor-statue-figure">
         {imageUrl && !imageFailed ? (

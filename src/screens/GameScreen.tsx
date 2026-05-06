@@ -80,9 +80,9 @@ export default function GameScreen() {
   const reconnectTimedOut = showReconnect && reconnectSecondsLeft <= 0;
 
   return (
-    <div className="w-full h-full relative overflow-hidden" data-testid="game-screen">
+    <div className="orlog-game-screen w-full h-full relative overflow-hidden" data-testid="game-screen">
       {/* Top HUDs */}
-      <div className="absolute top-1.5 left-2 md:top-2 md:left-2.5 z-20">
+      <div className="orlog-hud-left absolute top-1.5 left-2 md:top-2 md:left-2.5 z-20">
         <PlayerHUD
           player={opponent}
           side={selfSide === 'host' ? 'guest' : 'host'}
@@ -92,7 +92,7 @@ export default function GameScreen() {
           align="left"
         />
       </div>
-      <div className="absolute top-1.5 right-2 md:top-2 md:right-2.5 z-20">
+      <div className="orlog-hud-right absolute top-1.5 right-2 md:top-2 md:right-2.5 z-20">
         <PlayerHUD
           player={self}
           side={selfSide}
@@ -106,7 +106,7 @@ export default function GameScreen() {
       {/* Right side: game log */}
       {log.length > 0 && (
         <div
-          className="absolute right-2 md:right-2.5 top-16 md:top-18 z-20 parchment px-3 py-2 text-xs md:text-sm text-[#3a2a18] w-72 md:w-96 max-h-72 md:max-h-80 overflow-hidden"
+          className="orlog-game-log absolute right-2 md:right-2.5 top-16 md:top-18 z-20 parchment px-3 py-2 text-xs md:text-sm text-[#3a2a18] w-72 md:w-96 max-h-72 md:max-h-80 overflow-hidden"
           data-testid="resolution-log"
         >
           <div className="heading-carved text-[10px] md:text-xs uppercase tracking-widest text-[#5a3a1f] mb-1">
@@ -121,7 +121,7 @@ export default function GameScreen() {
       )}
 
       {/* Top center: phase + round */}
-      <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
+      <div className="orlog-phase-banner absolute top-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
         <div className="wood-panel px-3 py-1 rounded-sm">
           <span className="heading-carved text-xs md:text-sm tracking-widest">
             Round {snap.round} &middot; {phaseLabel(snap.phase)}
@@ -161,7 +161,7 @@ export default function GameScreen() {
       </div>
 
       {/* Bottom: dice tray + controls */}
-      <div className="absolute left-0 right-0 bottom-0 z-20 px-3 md:px-6 pb-4 md:pb-6 flex flex-col items-center gap-3">
+      <div className="orlog-bottom-tray absolute left-0 right-0 bottom-0 z-20 px-3 md:px-6 pb-4 md:pb-6 flex flex-col items-center gap-3">
         {snap.phase === 'favor' && self.availableFavors.length > 0 && (
           <GodFavorPanel
             player={self}
@@ -174,7 +174,7 @@ export default function GameScreen() {
         {(snap.phase === 'roll' || snap.phase === 'resolve' || snap.phase === 'round-end') && (
           <>
             {/* Opponent dice (small, read-only) */}
-            <div className="flex items-center gap-1.5 md:gap-2 opacity-85">
+            <div className="orlog-opponent-dice flex items-center gap-1.5 md:gap-2 opacity-85">
               <span className="heading-carved text-xs text-text-secondary mr-1 hidden md:inline">
                 {opponent.name}:
               </span>
@@ -202,7 +202,7 @@ export default function GameScreen() {
             {/* Your dice tray */}
             <div className="w-full max-w-5xl flex flex-col md:flex-row items-stretch justify-center gap-4">
               <div
-                className="wood-panel p-3 md:p-4 flex flex-col items-center gap-3 w-full max-w-2xl"
+                className="orlog-dice-panel wood-panel p-3 md:p-4 flex flex-col items-center gap-3 w-full max-w-2xl"
                 data-testid="dice-tray"
               >
                 <div className="flex items-center justify-between w-full">
@@ -240,7 +240,7 @@ export default function GameScreen() {
                   ))}
                 </div>
                 {snap.phase === 'roll' && (
-                  <div className="flex items-center gap-3 mt-1">
+                  <div className="orlog-roll-actions flex items-center gap-3 mt-1">
                     <WoodenButton
                       variant="primary"
                       onClick={doReroll}
@@ -270,18 +270,18 @@ export default function GameScreen() {
       {/* Top-right overlay leave button */}
       <button
         onClick={forfeit}
-        className="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-30 text-xs uppercase tracking-widest text-text-secondary hover:text-accent transition-colors"
+        className="orlog-forfeit absolute bottom-3 right-3 md:bottom-5 md:right-5 z-30 text-xs uppercase tracking-widest text-text-secondary hover:text-accent transition-colors"
         data-testid="leave-game-button"
       >
         &#x2715; Forfeit
       </button>
       {code && (
-        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/60">
+        <div className="orlog-session-badge absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/60">
           Rune: <span className="text-gold font-bold">{code}</span>
         </div>
       )}
       {aiMode && (
-        <div className="absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/70" data-testid="solo-mode-badge">
+        <div className="orlog-session-badge absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/70" data-testid="solo-mode-badge">
           Vs <span className="text-gold font-bold">{aiMode === 'skald' ? 'Skald' : aiMode === 'vikingr' ? 'Vikingr' : 'Berserkr'}</span>
         </div>
       )}
