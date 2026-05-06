@@ -1,0 +1,7 @@
+{
+  "name": "orlog-frontend-proxy",
+  "private": true,
+  "scripts": {
+    "start": "cd /app && node /app/node_modules/vite/bin/vite.js --host 0.0.0.0 --port 3000"
+  }
+}

@@ -17,7 +17,7 @@ export function DieFaceIcon({
     viewBox: '0 0 32 32',
     fill: 'none' as const,
     stroke: color,
-    strokeWidth: 2.4,
+    strokeWidth: 2.2,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
   };

@@ -79,7 +79,7 @@ agenthub/agents/youtube/db
 memory/test_credentials.md
 
 # Mobile development
-android-sdk/-e 
+android-sdk/-e
 # Environment and credential files
 .env
 .env.*
