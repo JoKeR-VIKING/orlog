@@ -28,14 +28,26 @@ interface Props {
 export function HealthGemRack({ hp, side }: Props) {
   const prevHp = useRef(hp);
   const [vanishing, setVanishing] = useState<number[]>([]);
+  const [appearing, setAppearing] = useState<number[]>([]);
 
   useEffect(() => {
     if (hp < prevHp.current) {
       const removed = Array.from({ length: prevHp.current - hp }, (_, i) => hp + i);
+      setAppearing((current) => current.filter((index) => !removed.includes(index)));
       setVanishing((current) => Array.from(new Set([...current, ...removed])));
       const timeout = window.setTimeout(() => {
         setVanishing((current) => current.filter((index) => !removed.includes(index)));
       }, 780);
+      prevHp.current = hp;
+      return () => window.clearTimeout(timeout);
+    }
+    if (hp > prevHp.current) {
+      const restored = Array.from({ length: hp - prevHp.current }, (_, i) => prevHp.current + i);
+      setVanishing((current) => current.filter((index) => !restored.includes(index)));
+      setAppearing((current) => Array.from(new Set([...current, ...restored])));
+      const timeout = window.setTimeout(() => {
+        setAppearing((current) => current.filter((index) => !restored.includes(index)));
+      }, 820);
       prevHp.current = hp;
       return () => window.clearTimeout(timeout);
     }
@@ -48,9 +60,10 @@ export function HealthGemRack({ hp, side }: Props) {
       Array.from({ length: MAX_HP }, (_, index) => {
         const alive = index < hp;
         const isVanishing = vanishing.includes(index);
-        return { index, alive, isVanishing };
+        const isAppearing = appearing.includes(index);
+        return { index, alive, isVanishing, isAppearing };
       }),
-    [hp, vanishing],
+    [appearing, hp, vanishing],
   );
 
   return (
@@ -59,12 +72,12 @@ export function HealthGemRack({ hp, side }: Props) {
       data-testid={`health-gem-rack-${side}`}
       aria-label={`${hp} health stones remaining`}
     >
-      {gems.map(({ index, alive, isVanishing }) => {
-        if (!alive && !isVanishing) return null;
+      {gems.map(({ index, alive, isVanishing, isAppearing }) => {
+        if (!alive && !isVanishing && !isAppearing) return null;
         return (
           <div
             key={index}
-            className={`health-gem ${alive ? 'alive' : ''} ${isVanishing ? 'vanishing' : ''}`}
+            className={`health-gem ${alive ? 'alive' : ''} ${isVanishing ? 'vanishing' : ''} ${isAppearing ? 'appearing' : ''}`}
             style={gemStyle(index)}
             title={`Health stone ${index + 1}`}
           />

@@ -98,6 +98,7 @@ function playResolutionFloater(set: (fn: (s: Store) => Partial<Store>) => void, 
   } else if (step.kind === 'attack') {
     if (step.damage > 0) addFloater(set, step.target, `-${step.damage}`, 'dmg');
   } else if (step.kind === 'god') {
+    if (!step.invoked) return;
     if (step.actorHpDelta > 0) addFloater(set, step.actor, `+${step.actorHpDelta}`, 'heal');
     if (step.targetHpDelta < 0) addFloater(set, step.target, `${step.targetHpDelta}`, 'dmg');
     if (step.actorFavorDelta > 0) addFloater(set, step.actor, `+${step.actorFavorDelta}⌘`, 'favor');
@@ -415,7 +416,6 @@ function applyAction(
       if (p.pendingFavors.includes(god.id)) {
         p.pendingFavors = [];
       } else {
-        if (p.favor < god.cost) break;
         p.pendingFavors = [god.id];
       }
       set({ snap: structuredClone(snap) });

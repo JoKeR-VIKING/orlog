@@ -10,11 +10,8 @@ interface Props {
 }
 
 export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
-  const pendingCost = player.pendingFavors.reduce(
-    (acc, id) => acc + (GOD_FAVOR_MAP[id]?.cost || 0),
-    0,
-  );
-  const effectiveFavor = player.favor - pendingCost;
+  const roundFavor = player.dice.filter((die) => die.grantsFavor).length;
+  const invokeFavor = player.favor + roundFavor;
   const hasChoice = player.pendingFavors.length > 0;
   const loadout = sanitizeFavorLoadout(player.availableFavors)
     .map((id) => GOD_FAVOR_MAP[id])
@@ -32,9 +29,9 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="text-xs md:text-sm text-[#3a2a18]">
-            Favor <span className="favor-token mx-1 align-middle">⌘</span>
-            <span className="font-bold">{effectiveFavor}</span>
-            {pendingCost > 0 && <span className="text-[#8a6322] ml-1">(-{pendingCost})</span>}
+            Invoke favor <span className="favor-token mx-1 align-middle">⌘</span>
+            <span className="font-bold">{invokeFavor}</span>
+            {roundFavor > 0 && <span className="text-[#8a6322] ml-1">(+{roundFavor} this round)</span>}
           </div>
           <WoodenButton
             variant="gold"
@@ -50,7 +47,6 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
         {loadout.map((g) => {
           const chosen = player.pendingFavors.includes(g.id);
-          const affordable = player.favor >= g.cost || chosen;
           return (
             <button
               key={g.id}
@@ -60,7 +56,7 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
                   ? 'inset 0 0 12px rgba(198,130,52,0.35), 0 0 0 2px #c68234'
                   : '0 3px 8px rgba(0,0,0,0.45), inset 0 0 8px rgba(0,0,0,0.4)',
               }}
-              disabled={!canAct || (!affordable && !chosen)}
+              disabled={!canAct}
               onClick={() => onCast(g.id)}
               data-testid={`god-favor-card-${g.id}`}
             >
@@ -86,7 +82,7 @@ export function GodFavorPanel({ player, canAct, onCast, onSkip }: Props) {
                   <span className="text-[var(--color-gold)] font-bold">{g.cost}</span>
                 </div>
               </div>
-              {hasChoice && !chosen && affordable && (
+              {hasChoice && !chosen && (
                 <div className="text-[10px] uppercase tracking-widest text-[var(--color-gold)]/75 mb-1">
                   Replaces selected
                 </div>

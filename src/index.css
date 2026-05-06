@@ -373,6 +373,38 @@ body {
 .health-gem.vanishing {
   animation: health-gem-vanish 780ms ease-out forwards;
 }
+@keyframes health-gem-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.42) rotate(var(--gem-rot, 0deg));
+    box-shadow:
+      0 0 0 rgba(245, 202, 96, 0),
+      0 0 0 rgba(245, 202, 96, 0);
+    filter: saturate(0.7) brightness(0.8);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.16) rotate(var(--gem-rot, 0deg));
+    box-shadow:
+      0 0 22px rgba(245, 202, 96, 0.95),
+      0 0 44px rgba(245, 202, 96, 0.55),
+      inset -2px -3px 6px rgba(8, 24, 14, 0.12),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.34);
+    filter: saturate(1.35) brightness(1.24);
+  }
+  100% {
+    opacity: 0.98;
+    transform: scale(1) rotate(var(--gem-rot, 0deg));
+    box-shadow:
+      inset -2px -3px 6px rgba(8, 24, 14, 0.38),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.28),
+      0 2px 7px rgba(0, 0, 0, 0.45);
+    filter: saturate(1) brightness(1);
+  }
+}
+.health-gem.appearing {
+  animation: health-gem-appear 820ms ease-out forwards;
+}
 
 /* Selected favor shelf */
 .favor-shelf {

@@ -133,7 +133,7 @@ function selectedGods(snap: GameSnapshot): { side: PlayerSide; god: GodFavor }[]
     snap[side].pendingFavors.forEach((id) => {
       if (!snap[side].availableFavors.includes(id)) return;
       const god = GOD_FAVOR_MAP[id];
-      if (god && snap[side].favor >= god.cost) picks.push({ side, god });
+      if (god) picks.push({ side, god });
     });
   });
   return picks.sort((a, b) => a.god.priority - b.god.priority);
@@ -162,6 +162,7 @@ function godStep(
   god: GodFavor,
   text: string,
   deltas: Partial<Pick<Extract<ResolutionStep, { kind: 'god' }>, 'actorHpDelta' | 'targetHpDelta' | 'actorFavorDelta' | 'targetFavorDelta'>> = {},
+  invoked = true,
 ): Extract<ResolutionStep, { kind: 'god' }> {
   return {
     id,
@@ -169,12 +170,15 @@ function godStep(
     actor,
     target: opposite(actor),
     favorId: god.id,
+    invoked,
     cost: god.cost,
     actorHpDelta: deltas.actorHpDelta || 0,
     targetHpDelta: deltas.targetHpDelta || 0,
     actorFavorDelta: deltas.actorFavorDelta || 0,
     targetFavorDelta: deltas.targetFavorDelta || 0,
-    text: `${sideName(snap, actor)} invokes ${god.name}: ${text}`,
+    text: invoked
+      ? `${sideName(snap, actor)} invokes ${god.name}: ${text}`
+      : `${sideName(snap, actor)} cannot invoke ${god.name}: ${text}`,
   };
 }
 
@@ -188,6 +192,10 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
   const favor = {
     host: countFavorBorders(snap.host.dice),
     guest: countFavorBorders(snap.guest.dice),
+  };
+  const resolutionFavor: Record<PlayerSide, number> = {
+    host: snap.host.favor + favor.host,
+    guest: snap.guest.favor + favor.guest,
   };
   if (favor.host > 0 || favor.guest > 0) {
     steps.push({
@@ -209,6 +217,11 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
   selectedGods(snap).forEach(({ side, god }) => {
     if (god.priority >= 40) return;
     const target = opposite(side);
+    if (resolutionFavor[side] < god.cost) {
+      steps.push(godStep(id++, snap, side, god, `cannot be invoked after earlier losses leave only ${resolutionFavor[side]} favor.`, {}, false));
+      return;
+    }
+    resolutionFavor[side] -= god.cost;
     switch (god.id) {
       case 'baldr': {
         const helmets = counts[side].helmet;
@@ -290,6 +303,11 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
   selectedGods(snap).forEach(({ side, god }) => {
     if (god.priority < 40) return;
     const target = opposite(side);
+    if (resolutionFavor[side] < god.cost) {
+      steps.push(godStep(id++, snap, side, god, `cannot be invoked after earlier losses leave only ${resolutionFavor[side]} favor.`, {}, false));
+      return;
+    }
+    resolutionFavor[side] -= god.cost;
     switch (god.id) {
       case 'thor':
         steps.push(godStep(id++, snap, side, god, `deals 2 unblockable damage to ${sideName(snap, target)}.`, { targetHpDelta: -2 }));
@@ -308,12 +326,14 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
         steps.push(godStep(id++, snap, side, god, 'heals 2 health.', { actorHpDelta: 2 }));
         break;
       case 'skuld': {
-        const destroyed = counts[side].arrow * 2;
+        const destroyed = Math.min(counts[side].arrow * 2, resolutionFavor[target]);
+        resolutionFavor[target] -= destroyed;
         steps.push(godStep(id++, snap, side, god, `destroys up to ${destroyed} favor from ${sideName(snap, target)}.`, { targetFavorDelta: -destroyed }));
         break;
       }
       case 'mimir': {
         const gained = attackStats[side].taken;
+        resolutionFavor[side] += gained;
         steps.push(godStep(id++, snap, side, god, `gains ${gained} favor from damage taken.`, { actorFavorDelta: gained }));
         break;
       }
@@ -351,6 +371,7 @@ export function applyResolutionStep(snap: GameSnapshot, step: ResolutionStep): R
     return step;
   }
   if (step.kind === 'god') {
+    if (!step.invoked) return step;
     const actor = snap[step.actor];
     const target = snap[step.target];
     actor.favor = Math.max(0, actor.favor - step.cost + step.actorFavorDelta);

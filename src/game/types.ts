@@ -155,6 +155,7 @@ export type ResolutionStep =
       actor: PlayerSide;
       target: PlayerSide;
       favorId: string;
+      invoked: boolean;
       cost: number;
       actorHpDelta: number;
       targetHpDelta: number;
