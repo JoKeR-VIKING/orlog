@@ -22,6 +22,12 @@
 
 ## What's Been Implemented (Jan 2026 — AAA upgrade)
 
+### V2 Fixes (post user feedback)
+- **Dice glyphs now clearly readable**: face textures bumped from 256→512, glyph stroke width 2.6+ in viewBox, drop-shadow + highlight pass for "carved" 3D feel, dice scaled up from 0.42→0.55, camera moved closer (10.5y/9.2z @ FOV 32 vs 13y/12z @ FOV 28).
+- **Ambient OFF by default + redesigned**: replaced buzzy sawtooth-drone-with-fire-crackle with soft choir-pad (D2/F2/A2 detuned sine voices with slow LFO modulation) + whispered low-passed brown noise wind + slow heartbeat drum every ~5s + distant 3-note horn motif every ~28s. Pleasant, cinematic, NOT 8-bit.
+- **Dice shake/reveal sounds re-engineered**: replaced square-wave clacks with organic `boneClack` primitive (sharp filtered brown-noise transient + tuned triangle wood resonance with FM-like sweep). Shake plays 22 random clacks across 1s with varied pitch (0.7-1.6×); reveal plays 14 clattering clacks plus a settling thud.
+- **AAA graphics**: stone-hall back/side walls with ashlar masonry textures (1024×512 procedural), 4 hanging banners (red/green/brown/blue) with embroidered runic motifs swaying gently, mossy stone floor (1024² with cobblestone tiles), wood textures upgraded to 1024² with finer grain/knots/scratches/plank stagger, larger riveted bowls.
+
 ### 3D Scene (R3F) — `/app/frontend/src/scenes/GameScene.tsx`
 - PCF-soft shadow maps + ACES filmic tone mapping + cinematic camera breathing.
 - Layered lighting: warm key directional, cool fill, top warm rim, bottom rune uplight.
