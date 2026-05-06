@@ -715,6 +715,11 @@ button,
   display: none;
 }
 
+.orlog-mobile-log-button,
+.orlog-mobile-log-modal {
+  display: none;
+}
+
 @media (max-width: 960px) {
   .health-gem-rack.opponent {
     left: calc(50% - 89px);
@@ -771,7 +776,7 @@ button,
   }
 
   .orlog-game-screen [data-testid^='player-hud-'] {
-    width: min(39vw, 142px);
+    width: min(37vw, 136px);
     padding: 6px 7px;
   }
 
@@ -826,11 +831,11 @@ button,
   }
 
   .orlog-hud-left {
-    left: 8px;
+    left: 22px;
   }
 
   .orlog-hud-right {
-    right: 8px;
+    right: 22px;
   }
 
   .orlog-game-screen .favor-token {
@@ -839,9 +844,13 @@ button,
     font-size: 13px;
   }
 
-  .orlog-phase-banner {
-    top: calc(env(safe-area-inset-top) + 50px);
+  .orlog-top-actions {
+    top: calc(env(safe-area-inset-top) + 70px);
     width: calc(100vw - 24px);
+    flex-direction: row;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
   }
 
   .orlog-phase-banner .wood-panel {
@@ -858,6 +867,48 @@ button,
 
   .orlog-game-log {
     display: none;
+  }
+
+  .orlog-mobile-log-button {
+    display: inline-flex;
+    position: static;
+    z-index: 1;
+    min-height: 28px;
+    padding: 5px 10px;
+    align-items: center;
+    justify-content: center;
+    transform: none;
+    color: var(--color-text-primary);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    pointer-events: auto;
+  }
+
+  .orlog-mobile-log-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+    background: rgba(4, 3, 2, 0.7);
+  }
+
+  .orlog-mobile-log-card {
+    width: min(100%, 420px);
+    max-height: 68dvh;
+    padding: 14px;
+    overflow: hidden;
+    border-radius: 4px;
+  }
+
+  .orlog-mobile-log-lines {
+    max-height: calc(68dvh - 62px);
+    padding-right: 6px;
+    overflow-y: auto;
+    color: #3a2a18;
+    font-size: 14px;
   }
 
   .orlog-bottom-tray {

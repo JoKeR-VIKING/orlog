@@ -46,6 +46,7 @@ export default function GameScreen() {
 
   // Tick every 500ms to update reconnect countdown UI
   const [now, setNow] = useState<number>(() => Date.now());
+  const [mobileLogOpen, setMobileLogOpen] = useState(false);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
@@ -121,12 +122,24 @@ export default function GameScreen() {
       )}
 
       {/* Top center: phase + round */}
-      <div className="orlog-phase-banner absolute top-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
-        <div className="wood-panel px-3 py-1 rounded-sm">
-          <span className="heading-carved text-xs md:text-sm tracking-widest">
-            Round {snap.round} &middot; {phaseLabel(snap.phase)}
-          </span>
+      <div className="orlog-top-actions absolute top-1.5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none">
+        <div className="orlog-phase-banner flex flex-col items-center pointer-events-none">
+          <div className="wood-panel px-3 py-1 rounded-sm">
+            <span className="heading-carved text-xs md:text-sm tracking-widest">
+              Round {snap.round} &middot; {phaseLabel(snap.phase)}
+            </span>
+          </div>
         </div>
+        {log.length > 0 && (
+          <button
+            type="button"
+            className="orlog-mobile-log-button wood-panel heading-carved"
+            onClick={() => setMobileLogOpen(true)}
+            data-testid="mobile-log-button"
+          >
+            Saga Log
+          </button>
+        )}
         {!opponentPresent && snap.phase !== 'game-over' && !aiMode && (
           <div className={`mt-1.5 parchment px-3 py-1.5 text-[11px] md:text-xs tracking-wider ${reconnectTimedOut ? 'text-blood' : 'text-[#3a2a18]'}`}
             data-testid="opponent-disconnected" style={{ pointerEvents: 'auto' }}>
@@ -146,6 +159,31 @@ export default function GameScreen() {
           </div>
         )}
       </div>
+
+      {mobileLogOpen && (
+        <div className="orlog-mobile-log-modal" role="dialog" aria-modal="true" aria-labelledby="mobile-log-title">
+          <div className="orlog-mobile-log-card parchment grain-overlay">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 id="mobile-log-title" className="heading-carved text-[#3a2a18] text-base">
+                Saga Log
+              </h2>
+              <button
+                type="button"
+                className="heading-carved text-[#5a3a1f] text-lg leading-none px-2"
+                onClick={() => setMobileLogOpen(false)}
+                aria-label="Close saga log"
+              >
+                ×
+              </button>
+            </div>
+            <div className="orlog-mobile-log-lines">
+              {log.map((line, i) => (
+                <div key={i} className="leading-snug">{line}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3D Scene */}
       <div className="absolute inset-0 z-0" data-testid="game-scene-3d">
