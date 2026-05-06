@@ -32,7 +32,7 @@ Browser-based 3D top-view Viking-themed Orlog dice game (inspired by Assassin's 
 
 ## Configuration
 - `/app/.env` — `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` placeholders. App auto-detects and falls back to BroadcastChannel. Drop in real keys for live cross-device multiplayer.
-- `/app/frontend/package.json` — supervisor proxy that runs Vite from /app on port 3000.
+- Runtime is the root Vite app; no backend or frontend proxy package is required.
 
 ## Next Actions / Backlog
 - **P1**: Auto-rejoin on reload — currently URL hash prefills but user must click Enter; could fully automate

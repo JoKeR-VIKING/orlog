@@ -217,7 +217,7 @@ function CenterDie({
       {active && <HighlightRing x={x} z={z} color="#f2b84f" />}
       <BowlDie
         x={x}
-        y={active ? 0.46 : 0.34}
+        y={active ? 0.5 : 0.38}
         z={z}
         dieId={die.id}
         sideIndex={die.sideIndex}

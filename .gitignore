@@ -18,6 +18,7 @@ node_modules/
 
 # Testing
 /coverage
+/test_reports/
 
 # Next.js
 /.next/
@@ -75,6 +76,7 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
+.vite/
 
 memory/test_credentials.md
 
@@ -85,6 +87,5 @@ android-sdk/-e
 .env.*
 *.env
 credentials.json
-*.pem
 *.key
 .credentials

@@ -93,7 +93,7 @@ class AudioEngine {
     gain.gain.value = 0;
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 400;
+    filter.frequency.value = 520;
     const osc = ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.value = 55;
@@ -104,7 +104,7 @@ class AudioEngine {
     const lfo = ctx.createOscillator();
     lfo.frequency.value = 0.12;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 120;
+    lfoGain.gain.value = 150;
 
     osc.connect(filter);
     osc2.connect(filter);
@@ -114,12 +114,12 @@ class AudioEngine {
     osc.start();
     osc2.start();
     lfo.start();
-    gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 2.5);
+    gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 2.5);
 
     // Drum pulses every ~3.5s
     const beat = () => {
       if (!this.ambientOn || !this.ctx) return;
-      this.drumHit(this.ctx, this.ctx.currentTime, 0.22);
+      this.drumHit(this.ctx, this.ctx.currentTime, 0.28);
       setTimeout(beat, 3300 + Math.random() * 500);
     };
     setTimeout(beat, 2000);
@@ -168,30 +168,50 @@ class AudioEngine {
   }
 
   private shakeSfx(ctx: AudioContext) {
-    // Rattling bursts of filtered noise for ~900ms
+    // Dry wooden rattle: low filtered scrape plus uneven cup knocks.
     const t0 = ctx.currentTime;
-    const duration = 1.0;
+    const duration = 1.05;
     const bufferSize = Math.floor(ctx.sampleRate * duration);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      // Bursts by modulating with rapid envelope
-      const phase = (i / ctx.sampleRate) * 14; // 14 bursts/s
-      const burst = Math.max(0, Math.sin(phase * Math.PI * 2));
-      data[i] = (Math.random() * 2 - 1) * burst * 0.6;
+      const time = i / ctx.sampleRate;
+      const chatter = Math.max(0, Math.sin(time * Math.PI * 2 * 11 + Math.sin(time * 31) * 0.8));
+      const scrape = 0.35 + Math.random() * 0.65;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(chatter, 1.9) * scrape;
     }
     const src = ctx.createBufferSource();
     src.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 1800;
-    filter.Q.value = 4;
+    const body = ctx.createBiquadFilter();
+    body.type = 'bandpass';
+    body.frequency.value = 620;
+    body.Q.value = 1.1;
+    const duller = ctx.createBiquadFilter();
+    duller.type = 'lowpass';
+    duller.frequency.value = 1400;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0, t0);
-    g.gain.linearRampToValueAtTime(0.4, t0 + 0.08);
+    g.gain.linearRampToValueAtTime(0.5, t0 + 0.06);
     g.gain.linearRampToValueAtTime(0.0, t0 + duration);
-    src.connect(filter).connect(g).connect(this.master!);
+    src.connect(body).connect(duller).connect(g).connect(this.master!);
     src.start(t0); src.stop(t0 + duration + 0.1);
+
+    for (let i = 0; i < 10; i++) {
+      const t = t0 + 0.05 + i * 0.095 + Math.random() * 0.025;
+      const knock = ctx.createOscillator();
+      const knockGain = ctx.createGain();
+      const knockFilter = ctx.createBiquadFilter();
+      knock.type = i % 3 === 0 ? 'triangle' : 'sine';
+      knock.frequency.setValueAtTime(150 + Math.random() * 90, t);
+      knock.frequency.exponentialRampToValueAtTime(55 + Math.random() * 24, t + 0.075);
+      knockFilter.type = 'lowpass';
+      knockFilter.frequency.value = 780;
+      knockGain.gain.setValueAtTime(0.11 + Math.random() * 0.08, t);
+      knockGain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+      knock.connect(knockFilter).connect(knockGain).connect(this.master!);
+      knock.start(t);
+      knock.stop(t + 0.13);
+    }
   }
 
   private diceRevealSfx(ctx: AudioContext) {

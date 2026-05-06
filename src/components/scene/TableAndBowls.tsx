@@ -425,6 +425,7 @@ const TOP_SIDE_LAYOUTS: ReadonlyArray<readonly [number, number, number, number, 
 ];
 
 const BOWL_DIE_Y = 0.72;
+const TABLE_DIE_Y = 0.38;
 
 const TABLE_PLANKS = [
   '#3b2112',
@@ -805,7 +806,7 @@ export function Bowl({
         const dx = 1.35 + col * 0.46;
         const dz = (row - 0.5) * 0.46;
         const rot = ((d.id * 53) % 100) / 100 * 0.35 - 0.18;
-        return <BowlDie key={`locked-${d.id}`} x={dx} y={0.26} z={dz} dieId={d.id} sideIndex={d.sideIndex} rot={rot} />;
+        return <BowlDie key={`locked-${d.id}`} x={dx} y={TABLE_DIE_Y} z={dz} dieId={d.id} sideIndex={d.sideIndex} rot={rot} />;
       })}
     </group>
   );
