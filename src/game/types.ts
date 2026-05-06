@@ -36,7 +36,7 @@ export const PHYSICAL_DICE: readonly PhysicalDie[] = [
     { face: 'helmet', grantsFavor: false },
     { face: 'shield', grantsFavor: true },
     { face: 'steal', grantsFavor: true },
-    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
   ]),
   definePhysicalDie([
     { face: 'axe', grantsFavor: false },
@@ -52,7 +52,7 @@ export const PHYSICAL_DICE: readonly PhysicalDie[] = [
     { face: 'helmet', grantsFavor: true },
     { face: 'shield', grantsFavor: false },
     { face: 'steal', grantsFavor: true },
-    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
   ]),
   definePhysicalDie([
     { face: 'axe', grantsFavor: false },
@@ -68,7 +68,7 @@ export const PHYSICAL_DICE: readonly PhysicalDie[] = [
     { face: 'helmet', grantsFavor: true },
     { face: 'shield', grantsFavor: true },
     { face: 'steal', grantsFavor: false },
-    { face: 'axe', grantsFavor: false },
+    { face: 'arrow', grantsFavor: false },
   ]),
 ];
 

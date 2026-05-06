@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_HP } from '../../game/engine';
 
 const GEM_SHAPES = [
-  { width: 26, height: 18, rotate: -18, radius: '58% 42% 55% 45% / 42% 56% 44% 58%' },
-  { width: 22, height: 26, rotate: 14, radius: '48% 52% 46% 54% / 42% 44% 56% 58%' },
-  { width: 28, height: 16, rotate: 8, radius: '60% 40% 56% 44% / 48% 52% 48% 52%' },
-  { width: 20, height: 24, rotate: -10, radius: '44% 56% 46% 54% / 54% 40% 60% 46%' },
-  { width: 25, height: 19, rotate: 22, radius: '55% 45% 58% 42% / 52% 48% 52% 48%' },
+  { width: 30, height: 21, rotate: -18, clip: 'polygon(7% 46%, 24% 13%, 63% 3%, 92% 30%, 82% 77%, 39% 97%, 12% 78%)', shine: '26% 22%' },
+  { width: 23, height: 31, rotate: 12, clip: 'polygon(47% 0%, 84% 12%, 99% 50%, 70% 94%, 29% 100%, 3% 62%, 16% 19%)', shine: '42% 18%' },
+  { width: 32, height: 19, rotate: 7, clip: 'polygon(3% 44%, 20% 13%, 55% 0%, 93% 20%, 99% 59%, 70% 92%, 23% 84%)', shine: '32% 18%' },
+  { width: 24, height: 29, rotate: -9, clip: 'polygon(36% 0%, 76% 9%, 100% 38%, 83% 82%, 43% 100%, 8% 77%, 0% 34%)', shine: '35% 16%' },
+  { width: 29, height: 22, rotate: 21, clip: 'polygon(11% 27%, 41% 0%, 78% 8%, 100% 46%, 75% 88%, 31% 100%, 0% 68%)', shine: '40% 20%' },
+  { width: 27, height: 27, rotate: -3, clip: 'polygon(50% 0%, 82% 13%, 100% 46%, 86% 83%, 51% 100%, 13% 85%, 0% 43%, 18% 12%)', shine: '48% 16%' },
 ] as const;
 
 function gemStyle(index: number) {
@@ -15,8 +16,10 @@ function gemStyle(index: number) {
     width: `${shape.width}px`,
     height: `${shape.height}px`,
     ['--gem-rot' as const]: `${shape.rotate}deg`,
-    transform: `rotate(${shape.rotate}deg)`,
-    borderRadius: shape.radius,
+    ['--gem-clip' as const]: shape.clip,
+    ['--gem-shine' as const]: shape.shine,
+    ['--gem-delay' as const]: `${(index % 7) * 110}ms`,
+    transform: `rotate(${shape.rotate}deg) translateZ(0)`,
   };
 }
 

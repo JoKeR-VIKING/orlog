@@ -36,17 +36,30 @@ export default function GameScene() {
 
   return (
     <Canvas
-      shadows={false}
+      shadows
       camera={{ position: [0, 13, 12], fov: 28 }}
       dpr={[1, 2]}
-      gl={{ antialias: true }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
       style={{ background: 'transparent' }}
     >
-      <ambientLight intensity={1.0} />
-      <directionalLight position={[6, 12, 7]} intensity={1.3} color="#f4c87a" />
-      <directionalLight position={[-7, 9, -5]} intensity={0.7} color="#c4a878" />
-      <directionalLight position={[0, 15, 0]} intensity={0.7} color="#ffe8b8" />
-      <pointLight position={[0, 4, 0]} intensity={1.0} color="#c68234" distance={14} />
+      <ambientLight intensity={0.86} />
+      <directionalLight
+        castShadow
+        position={[5.5, 10, 6]}
+        intensity={1.45}
+        color="#ffd28a"
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-7}
+        shadow-camera-right={7}
+        shadow-camera-top={6}
+        shadow-camera-bottom={-6}
+      />
+      <directionalLight position={[-6, 7, -5]} intensity={0.42} color="#7894b8" />
+      <directionalLight position={[0, 12, 0]} intensity={0.34} color="#fff0c8" />
+      <pointLight position={[0, 3.4, 0]} intensity={1.25} color="#c68234" distance={11} />
+      <pointLight position={[0, 2.4, 3.2]} intensity={1.0} color="#f0b46a" distance={8} />
+      <pointLight position={[-3.6, 2.1, 2.8]} intensity={0.55} color="#9f3228" distance={7} />
       <CameraRig />
       <Table />
       <Bowl player={snap.host} x={0} z={hostZ} isDieVisible={(die) => isDieVisible('host', die)} />

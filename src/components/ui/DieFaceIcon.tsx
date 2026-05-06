@@ -23,31 +23,31 @@ export function DieFaceIcon({
   };
   switch (face) {
     case 'axe':
-      // Dane axe
       return (
         <svg {...common}>
-          <path d="M8 20 L22 6" />
-          <path d="M18 4 C25 4 28 9 26 15 C22 11 17 10 15 12 Z" fill={color} fillOpacity="0.8" />
-          <circle cx="8" cy="20" r="1.4" fill={color} />
-          <path d="M8 20 L6 26" />
+          <path d="M9 25 L21 5" />
+          <path d="M19 4 C26 4 29 9 26 15 C23 12 19 11 16 13 C17 9 18 6 19 4 Z" fill={color} fillOpacity="0.82" />
+          <path d="M16 13 C12 12 10 10 10 7 C14 7 17 9 18 11 Z" fill={color} fillOpacity="0.45" />
+          <circle cx="9" cy="25" r="1.5" fill={color} />
+          <path d="M12 20 L7 19" />
         </svg>
       );
     case 'arrow':
       return (
         <svg {...common}>
-          <path d="M6 26 L26 6" />
-          <path d="M20 6 L26 6 L26 12" />
-          <path d="M6 26 L10 24 L8 28 Z" fill={color} fillOpacity="0.7" />
+          <path d="M5 16 L24 16" />
+          <path d="M24 10 L29 16 L24 22 Z" fill={color} fillOpacity="0.82" />
+          <path d="M8 16 L4 11 M8 16 L4 21 M11 16 L7 12 M11 16 L7 20" />
         </svg>
       );
     case 'helmet':
-      // Viking helmet with nose guard
       return (
         <svg {...common}>
-          <path d="M6 18 C6 11 10 6 16 6 C22 6 26 11 26 18 L26 22 L6 22 Z" fill={color} fillOpacity="0.15" />
-          <path d="M16 8 L16 22" />
-          <circle cx="11" cy="16" r="1.1" fill={color} />
-          <circle cx="21" cy="16" r="1.1" fill={color} />
+          <path d="M7 17 C8 10 11 6 16 6 C21 6 24 10 25 17 L24 22 L8 22 Z" fill={color} fillOpacity="0.2" />
+          <path d="M7 17 L25 17" />
+          <path d="M16 8 L16 24" />
+          <path d="M10 17 L8 24 M22 17 L24 24" />
+          <path d="M9 12 C6 9 5 7 4 5 M23 12 C26 9 27 7 28 5" />
         </svg>
       );
     case 'shield':

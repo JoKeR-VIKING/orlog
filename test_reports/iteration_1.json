@@ -1,31 +1,61 @@
 {
-  "summary": "Frontend-only multiplayer Orlog dice game tested across two tabs (same context, BroadcastChannel + localStorage fallback active since Supabase keys are placeholders). Validated home → lobby → game → roll/keep/reroll → stand → god favor → resolution → next round → leave flows. All 30+ data-testids verified. End-screen / Rematch flow not feasible to exercise via UI without HP cheat (would require ~5-10 played rounds with damage RNG); structurally code looks correct. No blocking bugs found.",
+  "summary": "Frontend-only Playwright test of the Orlog Vite/R3F app. Solo (vs Æsir → Skald) flow tested end-to-end: home → solo → game scene (3D + HUDs) → roll dice → lock dice → forfeit → end screen → back to home. All critical data-testid elements visible & clickable; no JS pageerrors; zero React/Three runtime errors. Only minor non-blocking issues: 3 ERR_BLOCKED_BY_RESPONSE.NotSameOrigin resource errors (likely placeholder Supabase / external asset CORS) and THREE.js deprecation warnings (Clock, PCFSoftShadowMap).",
   "backend_issues": {"critical": [], "minor": []},
   "frontend_issues": {
-    "ui_bugs": [],
+    "ui_bugs": [
+      {
+        "component": "DiceTray after Shake&Roll",
+        "issue": "User-side dice still rendered as '?' faces ~3.5s after clicking roll-dice-button; Lock Dice button correctly enabled (logic works) but face reveal visually delayed. Could be 3D cup-descent animation length or selfHasRolled flag transition. Worth verifying timing.",
+        "selector": "[data-testid=\"dice-item-N\"]",
+        "priority": "LOW"
+      }
+    ],
     "integration_issues": [],
     "design_issues": [
-      {"screen": "GameScreen", "issues": ["Two harmless console warnings during 3D rendering: THREE.Clock deprecation notice (advises THREE.Timer) and GPU stall ReadPixels perf message — non-blocking, but main agent may want to suppress THREE.Clock by upgrading three usage."]}
+      {
+        "screen": "GameScene initial load",
+        "issues": [
+          "Initial 3D scene takes ~3-5s to fully composite (procedural texture generation) — first screenshot showed black canvas; subsequent screenshot shows full table with bowls, torches, runic ring (looks great).",
+          "post_round.png confirms beautiful Viking aesthetic: wooden table, glowing iron-bound HUDs, flickering torches in corners, atmospheric vignette/bloom."
+        ]
+      }
     ]
+  },
+  "console_errors_observed": [
+    "Failed to load resource: net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin (x9) — likely placeholder Supabase REST or CORS-protected external asset. Non-blocking.",
+    "THREE.Clock deprecation warning (Use THREE.Timer)",
+    "THREE.WebGLShadowMap PCFSoftShadowMap deprecated (auto-fallback to PCFShadowMap)"
+  ],
+  "tests_executed": {
+    "home_buttons_visible": "PASS (create-session-button, toggle-join-button, toggle-solo-button)",
+    "solo_mode_entry": "PASS (toggle-solo-button → difficulty-skald-button → game-screen rendered)",
+    "game_scene_3d": "PASS (game-scene-3d visible, HUDs, scene visuals confirmed in screenshot)",
+    "player_huds": "PASS (player-hud-host + player-hud-guest both visible with HP bars + favor)",
+    "roll_dice": "PASS — button clickable, no JS errors; visual face-reveal timing slightly slow",
+    "lock_dice": "PASS — stand-button enabled after turnRolled, advances game",
+    "saga_log": "PASS — resolution-log visible with at least one entry ('The game begins. May the Norns favor you.')",
+    "forfeit_flow": "PASS — leave-game-button → end screen 'FORFEIT' → home-button returns to home (create-session-button visible again)",
+    "phase_banner": "INCONCLUSIVE — checked too early; banner only triggers on phase transitions and is brief, not seen but no error",
+    "audio_no_js_errors": "PASS — 0 pageerrors during audio cue triggers",
+    "no_red_console_errors_blocking": "PASS — only non-blocking CORS resource errors and Three.js deprecation warnings"
   },
   "test_report_links": [],
   "action_items": [
-    "(Optional) Address THREE.Clock deprecation warning by migrating to THREE.Timer in @react-three/fiber usage when convenient.",
-    "(Not blocking) Consider exposing a debug/cheat hook to set HP low for QA so end-screen/rematch can be exercised in CI; current full-game playthrough would take 5-10 rounds of RNG to reach end."
+    "Investigate the 3 ERR_BLOCKED_BY_RESPONSE.NotSameOrigin resource errors. If they originate from the placeholder Supabase URL fetches in solo mode, gate those network calls behind the !aiMode condition so solo play makes zero external requests.",
+    "OPTIONAL: Bump @react-three/fiber/drei or replace deprecated THREE.Clock with THREE.Timer; switch shadow map type from PCFSoftShadowMap to PCFShadowMap to silence warnings.",
+    "OPTIONAL: Verify dice face-reveal timing after Shake & Roll — consider shortening cup-descent animation or revealing 2D dice faces sooner so users see immediate feedback (currently faces remained '?' ~3.5s after click in headless test)."
   ],
   "critical_code_review_comments": [
-    "App is well-structured: GameScreen renders all required testids (resolution-log only mounts when log.length > 0 — correct, but log resets on next round, so testers must read it during the ~2.6s resolve window).",
-    "Engine resolveRound / beginNextRound correctly clears log on next round; verified by capturing log mid-resolve: 'HostV gained 2⌘ and stole 0⌘. GuestV gained 2⌘ and stole 0⌘. GuestV takes 1 damage.'",
-    "BroadcastChannel + localStorage host-authoritative model worked across two tabs in same Playwright context; both auto-advanced to game-screen without manual ready click.",
-    "All 6 GOD_FAVOR cards render with correct data-testids (baldr, skadi, vidar, thor, idun, mimir) with cost & description.",
-    "leave-game-button correctly returns user to Home (name-input visible after click)."
+    "GameScreen.tsx (342 lines): consider splitting the dice-tray + saga-log + reconnect-banner subviews into sibling components — file is approaching the 700-line threshold and is densely packed.",
+    "Solo mode still appears to trigger external Supabase requests (per CORS errors). Should short-circuit to local channel when aiMode is set, before any network init.",
+    "Phase banner trigger only fires for 'roll'/'favor'/'resolve' transitions and not on the very first round-1 roll entry (because lastPhase.current is initialized to snap.phase). If desired, force the banner once on mount for cinematic effect."
   ],
   "updated_files": [],
-  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% of testable flows (12/12 verified; 2 unreachable without HP cheat)"},
-  "test_credentials": "N/A (no auth)",
-  "seed_data_creation": "None",
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% of critical flows passed"},
+  "test_credentials": "n/a — solo mode, no auth",
+  "seed_data_creation": "none",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "Use TWO tabs in the SAME page.context() for multiplayer (BroadcastChannel needs shared origin/storage). Host: name-input → create-session-button → read session-code. Guest: name-input → toggle-join-button → join-session-input → join-session-button. Initial dice auto-roll fires ~700ms after lobby fills + 1.4s shake animation, so wait ~2.5s before reading dice-item-{0..5}. resolution-log only renders during resolve phase (~2.6s window) and is cleared on next round — capture text within ~500ms after BOTH players click skip-favors-button or confirm-favors-button. Favors all cost 3-5⌘ and players start at 0⌘, so first castable favor is round 2+. End-screen/rematch impossible to exercise without HP-depletion cheat.",
-  "rca of the issue": "No bugs found. All flows in scope passed."
+  "context_for_next_testing_agent": "Solo flow stable. The 3D scene needs ~3-5s to fully render. Use leave-game-button to forfeit (end screen shows 'FORFEIT' for self-forfeit, with home-button data-testid returning to home). Dice face reveal after Shake&Roll appears delayed visually (~3.5s) but logic is correct (turnRolled flips → Lock Dice enables). All key data-testid attributes are present & functional.",
+  "rca of the issue": "n/a — no critical bugs found"
 }

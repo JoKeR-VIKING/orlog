@@ -315,31 +315,115 @@ body {
   position: absolute;
   display: grid;
   grid-template-columns: repeat(5, max-content);
-  gap: 8px 8px;
-  width: 160px;
+  gap: 10px 10px;
+  width: 178px;
   justify-items: center;
   align-items: center;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.62));
+  perspective: 420px;
 }
 .health-gem-rack.opponent {
-  left: calc(50% - 360px);
-  top: 26%;
+  left: max(18px, calc(50% - 420px));
+  top: 22%;
 }
 .health-gem-rack.self {
-  left: calc(50% - 360px);
-  top: 60%;
+  left: calc(50% - 420px);
+  top: 61%;
 }
 .health-gem {
   --gem-rot: 0deg;
+  --gem-clip: polygon(8% 45%, 28% 10%, 70% 4%, 94% 38%, 78% 88%, 28% 96%);
+  --gem-shine: 35% 20%;
+  --gem-delay: 0ms;
+  position: relative;
+  isolation: isolate;
+  clip-path: var(--gem-clip);
   background:
-    radial-gradient(circle at 30% 25%, rgba(236, 255, 240, 0.92), rgba(255, 255, 255, 0.2) 24%, transparent 25%),
-    radial-gradient(circle at 45% 35%, #79bf90 0%, #4d9865 48%, #235034 100%);
+    linear-gradient(117deg, rgba(235, 255, 230, 0.78) 0 15%, transparent 16% 100%),
+    linear-gradient(42deg, rgba(255, 255, 255, 0.56) 0 13%, transparent 14% 100%),
+    radial-gradient(circle at var(--gem-shine), rgba(255, 255, 228, 0.98) 0 10%, rgba(201, 255, 191, 0.58) 18%, transparent 38%),
+    conic-gradient(from 215deg at 48% 46%,
+      #03170b 0deg,
+      #06441f 44deg,
+      #17a73b 82deg,
+      #b8f8c5 116deg,
+      #159235 156deg,
+      #055524 210deg,
+      #8ff0aa 246deg,
+      #07371d 302deg,
+      #02180c 360deg);
   box-shadow:
-    inset -2px -3px 6px rgba(8, 24, 14, 0.38),
-    inset 1px 1px 1px rgba(255, 255, 255, 0.28),
-    0 2px 7px rgba(0, 0, 0, 0.45);
+    inset -5px -6px 9px rgba(0, 19, 8, 0.78),
+    inset 3px 2px 3px rgba(255, 255, 224, 0.6),
+    inset 0 0 10px rgba(86, 255, 112, 0.38),
+    0 0 7px rgba(63, 255, 104, 0.36),
+    0 0 14px rgba(40, 218, 75, 0.2),
+    0 8px 10px rgba(0, 0, 0, 0.72);
+  filter:
+    saturate(1.18)
+    contrast(1.14)
+    brightness(0.98)
+    drop-shadow(0 8px 4px rgba(0, 0, 0, 0.62))
+    drop-shadow(0 0 6px rgba(47, 226, 77, 0.28));
+  transform-style: preserve-3d;
+  animation: gem-glint 3.8s ease-in-out infinite;
+  animation-delay: var(--gem-delay, 0ms);
+}
+.health-gem::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: var(--gem-clip);
+  background:
+    linear-gradient(65deg, transparent 0 28%, rgba(255, 255, 240, 0.62) 29% 39%, transparent 40% 100%),
+    linear-gradient(118deg, transparent 0 48%, rgba(2, 37, 14, 0.45) 49% 61%, transparent 62% 100%),
+    linear-gradient(154deg, rgba(255, 255, 255, 0.35) 0 18%, transparent 19% 100%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+}
+.health-gem::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  top: 11%;
+  width: 34%;
+  height: 18%;
+  border-radius: 999px;
+  background: rgba(255, 255, 240, 0.78);
+  box-shadow:
+    0 0 5px rgba(255, 255, 226, 0.82),
+    14px 8px 12px rgba(177, 255, 185, 0.22);
+  transform: rotate(-18deg);
+  opacity: 0.8;
 }
 .health-gem.alive {
   opacity: 0.98;
+}
+@keyframes gem-glint {
+  0%, 100% {
+    filter:
+      saturate(1.18)
+      contrast(1.14)
+      brightness(0.98)
+      drop-shadow(0 8px 4px rgba(0, 0, 0, 0.62))
+      drop-shadow(0 0 6px rgba(47, 226, 77, 0.28));
+  }
+  48% {
+    filter:
+      saturate(1.34)
+      contrast(1.2)
+      brightness(1.16)
+      drop-shadow(0 8px 4px rgba(0, 0, 0, 0.62))
+      drop-shadow(0 0 12px rgba(61, 255, 98, 0.42));
+  }
+  56% {
+    filter:
+      saturate(1.2)
+      contrast(1.15)
+      brightness(1.02)
+      drop-shadow(0 8px 4px rgba(0, 0, 0, 0.62))
+      drop-shadow(0 0 7px rgba(47, 226, 77, 0.3));
+  }
 }
 @keyframes health-gem-vanish {
   0% {
@@ -347,9 +431,10 @@ body {
     transform: scale(1) rotate(var(--gem-rot, 0deg));
     box-shadow:
       0 0 0 rgba(201, 38, 29, 0),
-      inset -2px -3px 6px rgba(8, 24, 14, 0.38),
-      inset 1px 1px 1px rgba(255, 255, 255, 0.28),
-      0 2px 7px rgba(0, 0, 0, 0.45);
+      inset -5px -6px 9px rgba(0, 19, 8, 0.78),
+      inset 3px 2px 3px rgba(255, 255, 224, 0.6),
+      0 0 14px rgba(63, 255, 104, 0.55),
+      0 8px 10px rgba(0, 0, 0, 0.64);
   }
   35% {
     opacity: 1;
@@ -396,9 +481,12 @@ body {
     opacity: 0.98;
     transform: scale(1) rotate(var(--gem-rot, 0deg));
     box-shadow:
-      inset -2px -3px 6px rgba(8, 24, 14, 0.38),
-      inset 1px 1px 1px rgba(255, 255, 255, 0.28),
-      0 2px 7px rgba(0, 0, 0, 0.45);
+      inset -5px -6px 9px rgba(0, 19, 8, 0.78),
+      inset 3px 2px 3px rgba(255, 255, 224, 0.6),
+      inset 0 0 10px rgba(86, 255, 112, 0.52),
+      0 0 8px rgba(63, 255, 104, 0.62),
+      0 0 18px rgba(40, 218, 75, 0.32),
+      0 8px 10px rgba(0, 0, 0, 0.64);
     filter: saturate(1) brightness(1);
   }
 }
@@ -611,27 +699,31 @@ body {
 
 @media (max-width: 960px) {
   .health-gem-rack.opponent {
-    left: calc(50% - 276px);
-    top: 24%;
+    left: calc(50% - 89px);
+    top: 23%;
   }
   .health-gem-rack.self {
-    left: calc(50% - 276px);
-    top: 59%;
+    left: calc(50% - 89px);
+    bottom: 185px;
+    top: auto;
   }
 }
 
 @media (max-width: 768px) {
   .health-gem-rack {
-    gap: 6px 6px;
-    width: 136px;
+    grid-template-columns: repeat(15, max-content);
+    gap: 5px;
+    width: 520px;
+    transform: scale(0.58);
+    transform-origin: left top;
   }
   .health-gem-rack.opponent {
-    left: 10px;
-    top: 20%;
+    left: 8px;
+    top: 15.5%;
   }
   .health-gem-rack.self {
-    left: 10px;
-    top: 56%;
+    left: 8px;
+    top: 18.8%;
   }
   .favor-shelf {
     width: 100%;
