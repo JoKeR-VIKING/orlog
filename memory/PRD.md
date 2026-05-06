@@ -22,7 +22,12 @@
 
 ## What's Been Implemented (Jan 2026 — AAA upgrade)
 
-### V2 Fixes (post user feedback)
+### V3 Fixes (post second round of feedback)
+- **Dice glyphs FINALLY readable**: discovered `RoundedBox` from drei does NOT support per-face material arrays — all dice were rendering with the same blank face. Switched to standard `<boxGeometry>` and the per-side textures map correctly now. Also rewrote glyphs as bold filled silhouettes (100×100 viewBox, fill-only — no thin strokes) with axe/arrow/shield/helmet/steal each clearly identifiable.
+- **Dice fit the bowl**: shrunk from 0.55→0.38 size, spacing 0.56→0.44, bowl widened to 1.18 outer / 0.85 inner. 6 dice arranged 3×2 sit cleanly inside without overflow/stacking.
+- **Ambient OFF by default verified** (HomeScreen shows "AMBIENT DRONE: OFF").
+
+### V2 Fixes (post first round of feedback)
 - **Dice glyphs now clearly readable**: face textures bumped from 256→512, glyph stroke width 2.6+ in viewBox, drop-shadow + highlight pass for "carved" 3D feel, dice scaled up from 0.42→0.55, camera moved closer (10.5y/9.2z @ FOV 32 vs 13y/12z @ FOV 28).
 - **Ambient OFF by default + redesigned**: replaced buzzy sawtooth-drone-with-fire-crackle with soft choir-pad (D2/F2/A2 detuned sine voices with slow LFO modulation) + whispered low-passed brown noise wind + slow heartbeat drum every ~5s + distant 3-note horn motif every ~28s. Pleasant, cinematic, NOT 8-bit.
 - **Dice shake/reveal sounds re-engineered**: replaced square-wave clacks with organic `boneClack` primitive (sharp filtered brown-noise transient + tuned triangle wood resonance with FM-like sweep). Shake plays 22 random clacks across 1s with varied pitch (0.7-1.6×); reveal plays 14 clattering clacks plus a settling thud.
