@@ -1,4 +1,4 @@
-package com.orlog.game;
+package com.orlog;
 
 import com.getcapacitor.BridgeActivity;
 
