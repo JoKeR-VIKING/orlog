@@ -1,8 +1,9 @@
 // Orlog AI opponent for single-player mode.
-// Three difficulty levels:
-//   skald     — novice: mostly random keeps, rarely casts favors
-//   vikingr   — intermediate: reasonable heuristics, sometimes errs
-//   berserkr  — expert: aggressive strategy + optimal favor usage
+// Four difficulty levels:
+//   skald     — easy: mostly random keeps, rarely casts favors
+//   vikingr   — medium: reasonable heuristics, sometimes errs
+//   jarl      — hard: strong planning with small mistakes
+//   berserkr  — extra hard: aggressive strategy + optimal favor usage
 
 import type {
   DieFace,
@@ -14,18 +15,20 @@ import type {
 } from '../game/types';
 import { GOD_FAVORS, GOD_FAVOR_MAP, sanitizeFavorLoadout } from '../game/types';
 
-export type Difficulty = 'skald' | 'vikingr' | 'berserkr';
+export type Difficulty = 'skald' | 'vikingr' | 'jarl' | 'berserkr';
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   skald: 'Skald',
   vikingr: 'Vikingr',
+  jarl: 'Jarl',
   berserkr: 'Berserkr',
 };
 
 export const DIFFICULTY_SUBTITLE: Record<Difficulty, string> = {
-  skald: 'Novice poet — learned the rules but fumbles the bones',
-  vikingr: 'Seasoned warrior — thinks, plans, sometimes slips',
-  berserkr: 'Frenzied master — reads the Norns and strikes true',
+  skald: 'Easy — novice poet who fumbles the bones',
+  vikingr: 'Medium — seasoned warrior who plans, then slips',
+  jarl: 'Hard — battle-tested ruler with sharp tactics',
+  berserkr: 'Extra Hard — frenzied master who strikes true',
 };
 
 type Strategy = 'offense' | 'defense' | 'favor' | 'disrupt';
@@ -117,6 +120,31 @@ function scoreFavorChoice(
   return score;
 }
 
+function berserkrUrgencyBonus(
+  god: GodFavor,
+  me: PlayerState,
+  opp: PlayerState,
+  counts: Record<DieFace, number>,
+  oppCounts: Record<DieFace, number>,
+  projectedOppFavor: number,
+): number {
+  switch (god.id) {
+    case 'thor':
+      return opp.hp <= 6 || counts.axe + counts.arrow >= 2 ? 3.2 : 1.4;
+    case 'heimdall':
+      return oppCounts.axe + oppCounts.arrow >= 2 && counts.helmet + counts.shield >= 1 ? 3 : me.hp <= 7 ? 1.5 : 0.6;
+    case 'skuld':
+      return counts.arrow >= 1 && projectedOppFavor >= 2 ? 3.4 : counts.arrow >= 2 ? 1.8 : 0.5;
+    case 'idun':
+      return me.hp <= 9 ? 2.6 : 0.4;
+    case 'vidar':
+    case 'ullr':
+      return 1.6;
+    default:
+      return 0.8;
+  }
+}
+
 function bestFavorScore(
   me: PlayerState,
   opp: PlayerState,
@@ -176,7 +204,8 @@ function evaluateKeepPlan(
   const nearBreakpointBonus = favorGap === 1 ? 2.8 : favorGap === 2 ? 1.5 : favorGap === null ? 0.75 : 0;
   const stealValue = counts.steal * (projectedOppFavor >= 5 ? 3.2 : projectedOppFavor >= 3 ? 2.4 : projectedOppFavor > 0 ? 1.5 : 0.5);
   const favorValue = favorIncomeForKeepSet(me, keep) * (projectedFavor < 4 ? 2.2 : projectedFavor < 6 ? 1.4 : 0.9);
-  const flexibility = me.rollsLeft > 1 ? (6 - keepCount) * (diff === 'berserkr' ? 0.8 : 1.05) : keepCount * 0.15;
+  const flexibilityFactor = diff === 'berserkr' ? 0.8 : diff === 'jarl' ? 0.95 : 1.05;
+  const flexibility = me.rollsLeft > 1 ? (6 - keepCount) * flexibilityFactor : keepCount * 0.15;
 
   let score = 0;
   score += outgoing * 6.7;
@@ -222,6 +251,15 @@ function chooseStrategy(
   if (diff === 'vikingr') {
     const good = lethalReach ? 'offense' : pressure ? 'defense' : canThreatenFavor ? 'disrupt' : behindOnFavor ? 'favor' : 'offense';
     if (Math.random() < 0.18) {
+      const alternatives = (['offense', 'defense', 'favor', 'disrupt'] as Strategy[]).filter((s) => s !== good);
+      return alternatives[Math.floor(Math.random() * alternatives.length)];
+    }
+    return good;
+  }
+
+  if (diff === 'jarl') {
+    const good = lethalReach ? 'offense' : pressure ? 'defense' : canThreatenFavor ? 'disrupt' : behindOnFavor ? 'favor' : 'offense';
+    if (Math.random() < 0.07) {
       const alternatives = (['offense', 'defense', 'favor', 'disrupt'] as Strategy[]).filter((s) => s !== good);
       return alternatives[Math.floor(Math.random() * alternatives.length)];
     }
@@ -377,14 +415,15 @@ export function aiRollDecision(
   const finishValue = evaluateKeepPlan(snap, side, new Set(me.dice.map((d) => d.id)), diff);
   const bestKeep = new Set(desiredKeepIds(snap, side, diff));
   const keepValue = evaluateKeepPlan(snap, side, bestKeep, diff);
-  const rerollBudget = (6 - bestKeep.size) * (diff === 'berserkr' ? 1.25 : 1.6);
+  const rerollBudgetFactor = diff === 'berserkr' ? 1.25 : diff === 'jarl' ? 1.4 : 1.6;
+  const rerollBudget = (6 - bestKeep.size) * rerollBudgetFactor;
   const oppIncoming = expectedDamage(oppCommitted.axe, myCommitted.helmet) + expectedDamage(oppCommitted.arrow, myCommitted.shield);
 
   if (me.rollsLeft <= 1) return 'stand';
   if (finishValue >= keepValue + rerollBudget) return 'stand';
   if (oppIncoming >= me.hp && selectedNow >= 4) return 'stand';
   if (selectedNow >= 5 && finishValue >= keepValue - 1) return 'stand';
-  if (rerollableLow >= (diff === 'berserkr' ? 1 : 2)) return 'reroll';
+  if (rerollableLow >= (diff === 'vikingr' ? 2 : 1)) return 'reroll';
   return diff === 'vikingr' && Math.random() < 0.12 ? 'stand' : 'reroll';
 }
 
@@ -404,23 +443,27 @@ export function aiPickFavors(
   // Score each favor's value in the current state
   const candidates: { god: GodFavor; score: number }[] = [];
   availableGods(me).forEach((god) => {
-    candidates.push({
-      god,
-      score: scoreFavorChoice(god, me, opp, counts, oppCounts, favorAtInvoke, oppFavorAtInvoke),
-    });
+    const baseScore = scoreFavorChoice(god, me, opp, counts, oppCounts, favorAtInvoke, oppFavorAtInvoke);
+    const urgency = berserkrUrgencyBonus(god, me, opp, counts, oppCounts, oppFavorAtInvoke);
+    const score = diff === 'berserkr'
+      ? baseScore + urgency
+      : diff === 'jarl'
+        ? baseScore + urgency * 0.45
+        : baseScore;
+    candidates.push({ god, score });
   });
 
   candidates.sort((a, b) => b.score - a.score);
 
   const picks: string[] = [];
 
-  const randomness = diff === 'skald' ? 0.7 : diff === 'vikingr' ? 0.18 : 0;
+  const randomness = diff === 'skald' ? 0.7 : diff === 'vikingr' ? 0.18 : diff === 'jarl' ? 0.06 : 0;
 
   for (const c of candidates) {
     if (c.score <= 0) continue;
     if (favorAtInvoke < c.god.cost) continue;
     if (Math.random() < randomness) continue;
-    const threshold = diff === 'skald' ? 6 : diff === 'vikingr' ? 3.5 : 1.5;
+    const threshold = diff === 'skald' ? 6 : diff === 'vikingr' ? 3.5 : diff === 'jarl' ? 1.8 : 0.75;
     if (c.score < threshold) continue;
     picks.push(c.god.id);
     break;
@@ -436,7 +479,10 @@ export function favorListCost(ids: string[]): number {
 // Random action delays (ms) per difficulty to feel natural
 export function aiDelay(diff: Difficulty, kind: 'think' | 'act'): number {
   if (kind === 'think') {
-    return diff === 'skald' ? 700 + Math.random() * 800 : diff === 'vikingr' ? 500 + Math.random() * 700 : 350 + Math.random() * 600;
+    if (diff === 'skald') return 700 + Math.random() * 800;
+    if (diff === 'vikingr') return 500 + Math.random() * 700;
+    if (diff === 'jarl') return 420 + Math.random() * 620;
+    return 350 + Math.random() * 600;
   }
   return 220 + Math.random() * 300;
 }

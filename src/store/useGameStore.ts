@@ -17,13 +17,14 @@ import {
 } from '../game/engine';
 import type { ResolutionStep } from '../game/types';
 import type { GameSnapshot, NetMsg, PlayerAction, PlayerSide } from '../game/types';
-import { DEFAULT_FAVOR_LOADOUT, GOD_FAVOR_MAP, sanitizeFavorLoadout } from '../game/types';
+import { DEFAULT_FAVOR_LOADOUT, FAVOR_LOADOUT_SIZE, GOD_FAVOR_MAP, GOD_FAVORS, sanitizeFavorLoadout } from '../game/types';
 import { randomCode, randomSeed } from '../game/rng';
 import type { Channel, PresenceInfo } from '../multiplayer/channel';
-import { createChannel } from '../multiplayer/channel';
+import type { MatchmakingTicket } from '../multiplayer/channel';
+import { createChannel, findOnlineMatch } from '../multiplayer/channel';
 import { audio } from '../audio/sounds';
 import type { Difficulty } from '../ai/orlogAI';
-import { aiDelay, generatePlayerActions } from '../ai/orlogAI';
+import { DIFFICULTY_LABEL, aiDelay, generatePlayerActions } from '../ai/orlogAI';
 import { clearUrlSession, writeUrlSession } from '../utils/sessionHash';
 
 type View = 'home' | 'lobby' | 'game' | 'end';
@@ -42,6 +43,7 @@ export interface ConnectionState {
   ambientOn: boolean;
   error: string | null;
   aiMode: Difficulty | null; // when non-null, playing solo vs AI
+  matchmaking: boolean;
 }
 
 export interface AnimationState {
@@ -55,6 +57,8 @@ export interface Store extends ConnectionState, AnimationState {
   setFavorLoadout: (favorIds: string[]) => void;
   hostSession: () => void;
   joinSession: (code: string) => void;
+  quickMatch: () => void;
+  cancelMatchmaking: () => void;
   hostSoloSession: (difficulty: Difficulty) => void;
   leave: () => void;
   toggleSound: () => void;
@@ -72,6 +76,38 @@ export interface Store extends ConnectionState, AnimationState {
 }
 
 // ---- Helpers ----
+const FAVOR_LOADOUT_STORAGE_KEY = 'orlog:favorLoadout:v1';
+
+let matchmakingTicket: MatchmakingTicket | null = null;
+
+function storedFavorLoadout(): string[] {
+  if (typeof localStorage === 'undefined') return [...DEFAULT_FAVOR_LOADOUT];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FAVOR_LOADOUT_STORAGE_KEY) || 'null');
+    if (Array.isArray(parsed)) return sanitizeFavorLoadout(parsed);
+  } catch {
+    // ignore malformed local preference data
+  }
+  return [...DEFAULT_FAVOR_LOADOUT];
+}
+
+function persistFavorLoadout(favorIds: string[]) {
+  try {
+    localStorage.setItem(FAVOR_LOADOUT_STORAGE_KEY, JSON.stringify(sanitizeFavorLoadout(favorIds)));
+  } catch {
+    // storage can be blocked in restricted browser modes
+  }
+}
+
+function randomAiFavorLoadout(): string[] {
+  const ids = GOD_FAVORS.map((god) => god.id);
+  for (let i = ids.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  return sanitizeFavorLoadout(ids.slice(0, FAVOR_LOADOUT_SIZE));
+}
+
 function broadcastSnapshot(get: () => Store) {
   const { channel, snap } = get();
   if (!channel) return;
@@ -438,7 +474,8 @@ function applyAction(
       if (snap.phase !== 'game-over') break;
       if (snap.endReason?.kind === 'forfeit' || snap.endReason?.kind === 'fled') break;
       if (snap.rematchRequest && snap.rematchRequest !== side) {
-        const reset = freshSnapshot(snap.host.name, snap.guest.name, snap.host.availableFavors, snap.guest.availableFavors);
+        const guestFavors = get().aiMode ? randomAiFavorLoadout() : snap.guest.availableFavors;
+        const reset = freshSnapshot(snap.host.name, snap.guest.name, snap.host.availableFavors, guestFavors);
         set({ snap: reset, view: 'game', floaters: [] });
         broadcastSnapshot(get);
       } else {
@@ -464,11 +501,12 @@ export const useStore = create<Store>((set, get) => ({
   opponentPresent: false,
   opponentLastSeen: 0,
   nameInput: '',
-  favorLoadout: [...DEFAULT_FAVOR_LOADOUT],
+  favorLoadout: storedFavorLoadout(),
   soundOn: true,
   ambientOn: false,
   error: null,
   aiMode: null,
+  matchmaking: false,
   floaters: [],
   snap: freshSnapshot(),
 
@@ -486,31 +524,61 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setFavorLoadout: (favorIds) => {
-    set({ favorLoadout: sanitizeFavorLoadout(favorIds) });
+    const next = sanitizeFavorLoadout(favorIds);
+    persistFavorLoadout(next);
+    set({ favorLoadout: next });
   },
 
   hostSession: () => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
+    matchmakingTicket = null;
     const code = randomCode(6);
     const name = get().nameInput || 'Wanderer';
+    set({ matchmaking: false });
     openSession(get, set, code, name, null, get().favorLoadout);
   },
 
   joinSession: (code) => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
+    matchmakingTicket = null;
     const clean = code.trim().toUpperCase();
     if (clean.length < 4) {
       set({ error: 'Enter a valid session code.' });
       return;
     }
     const name = get().nameInput || 'Wanderer';
+    set({ matchmaking: false });
     openSession(get, set, clean, name, null, get().favorLoadout);
   },
 
-  hostSoloSession: (difficulty) => {
+  quickMatch: () => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
     const name = get().nameInput || 'Wanderer';
+    set({ matchmaking: true, error: null });
+    matchmakingTicket = findOnlineMatch((matchCode) => {
+      matchmakingTicket = null;
+      set({ matchmaking: false });
+      openSession(get, set, matchCode, name, null, get().favorLoadout);
+    });
+  },
+
+  cancelMatchmaking: () => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
+    matchmakingTicket = null;
+    set({ matchmaking: false });
+  },
+
+  hostSoloSession: (difficulty) => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
+    matchmakingTicket = null;
+    const name = get().nameInput || 'Wanderer';
+    set({ matchmaking: false });
     openSoloSession(get, set, name, difficulty, get().favorLoadout);
   },
 
   leave: () => {
+    if (matchmakingTicket) matchmakingTicket.cancel();
+    matchmakingTicket = null;
     const ch = get().channel;
     if (ch) ch.leave();
     clearUrlSession();
@@ -526,6 +594,7 @@ export const useStore = create<Store>((set, get) => ({
       snap: freshSnapshot(),
       floaters: [],
       error: null,
+      matchmaking: false,
     });
   },
 
@@ -640,6 +709,7 @@ function openSession(
     opponentPresent: false,
     opponentLastSeen: Date.now(),
     aiMode: ai,
+    matchmaking: false,
     error: null,
     snap,
     floaters: [],
@@ -749,7 +819,7 @@ function openSoloSession(
     leave: () => {},
   };
 
-  const aiName = difficulty === 'skald' ? 'Skald' : difficulty === 'vikingr' ? 'Vikingr' : 'Berserkr';
+  const aiName = DIFFICULTY_LABEL[difficulty];
   set({
     channel: mockChannel,
     code: null,
@@ -759,8 +829,9 @@ function openSoloSession(
     opponentPresent: true,
     opponentLastSeen: Date.now(),
     aiMode: difficulty,
+    matchmaking: false,
     error: null,
-    snap: freshSoloSnapshot(name, aiName, favorLoadout),
+    snap: freshSoloSnapshot(name, aiName, favorLoadout, randomAiFavorLoadout()),
     floaters: [],
   });
   writeUrlSession({ code: null, ai: difficulty });

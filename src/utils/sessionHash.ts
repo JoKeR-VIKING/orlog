@@ -1,9 +1,9 @@
 // Session rune persistence via URL hash.
-// On app load, read #code=XXXXXX and optional &ai=easy|medium|hard to auto-restore.
+// On app load, read #code=XXXXXX and optional &ai=<difficulty> to auto-restore.
 
 export interface UrlSession {
   code: string | null;
-  ai: 'skald' | 'vikingr' | 'berserkr' | null;
+  ai: 'skald' | 'vikingr' | 'jarl' | 'berserkr' | null;
 }
 
 export function readUrlSession(): UrlSession {
@@ -19,7 +19,7 @@ export function readUrlSession(): UrlSession {
   const code = /^[A-Z0-9]{4,8}$/.test(rawCode) ? rawCode : null;
   const aiRaw = (map.ai || '').toLowerCase();
   const ai =
-    aiRaw === 'skald' || aiRaw === 'vikingr' || aiRaw === 'berserkr' ? aiRaw : null;
+    aiRaw === 'skald' || aiRaw === 'vikingr' || aiRaw === 'jarl' || aiRaw === 'berserkr' ? aiRaw : null;
   return { code, ai };
 }
 

@@ -28,6 +28,10 @@ export interface Channel {
   isSupabase: boolean;
 }
 
+export interface MatchmakingTicket {
+  cancel: () => void;
+}
+
 // Detect if Supabase URL looks real
 function supabaseConfigured(): boolean {
   const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || '';
@@ -44,6 +48,13 @@ function makeId(): string {
   return (
     Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
   );
+}
+
+function makeMatchCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i += 1) code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return code;
 }
 
 // -------- Supabase-backed channel --------
@@ -266,4 +277,105 @@ export function createChannel(code: string): Channel {
 
 export function isRealSupabase(): boolean {
   return supabaseConfigured();
+}
+
+export function findOnlineMatch(onMatch: (code: string) => void): MatchmakingTicket {
+  if (supabaseConfigured()) {
+    const selfId = makeId();
+    let matched = false;
+    const ch = supabase.channel('orlog:matchmaking:v1', {
+      config: { broadcast: { self: true }, presence: { key: selfId } },
+    });
+
+    const finish = (code: string) => {
+      if (matched) return;
+      matched = true;
+      onMatch(code);
+      setTimeout(() => ch.unsubscribe(), 50);
+    };
+
+    ch.on('broadcast', { event: 'match' }, (payload) => {
+      const msg = payload.payload as { code?: string; hostId?: string; guestId?: string };
+      if (msg.code && (msg.hostId === selfId || msg.guestId === selfId)) finish(msg.code);
+    });
+
+    ch.on('presence', { event: 'sync' }, () => {
+      if (matched) return;
+      const state = ch.presenceState<{ joinedAt: number }>();
+      const members: { id: string; joinedAt: number }[] = [];
+      Object.entries(state).forEach(([id, metas]) => {
+        const meta = metas[0];
+        if (meta) members.push({ id, joinedAt: meta.joinedAt });
+      });
+      members.sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
+      const selfIndex = members.findIndex((m) => m.id === selfId);
+      if (selfIndex !== 0 || members.length < 2) return;
+      const guest = members.find((m) => m.id !== selfId);
+      if (!guest) return;
+      const code = makeMatchCode();
+      ch.send({ type: 'broadcast', event: 'match', payload: { code, hostId: selfId, guestId: guest.id } });
+      finish(code);
+    });
+
+    ch.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await ch.track({ joinedAt: Date.now() });
+    });
+
+    return {
+      cancel: () => {
+        matched = true;
+        ch.unsubscribe();
+      },
+    };
+  }
+
+  const selfId = makeId();
+  const code = makeMatchCode();
+  const storageKey = 'orlog:matchmaking:local';
+  const bc = new BroadcastChannel('orlog:matchmaking:local');
+  let matched = false;
+
+  const finish = (matchCode: string) => {
+    if (matched) return;
+    matched = true;
+    try {
+      const current = JSON.parse(localStorage.getItem(storageKey) || 'null') as { id?: string } | null;
+      if (current?.id === selfId) localStorage.removeItem(storageKey);
+    } catch {
+      // ignore malformed local fallback state
+    }
+    bc.close();
+    onMatch(matchCode);
+  };
+
+  bc.addEventListener('message', (event: MessageEvent) => {
+    const msg = event.data as { kind?: string; id?: string; code?: string };
+    if (msg.kind === 'match' && msg.id === selfId && msg.code) finish(msg.code);
+  });
+
+  try {
+    const waiting = JSON.parse(localStorage.getItem(storageKey) || 'null') as { id: string; code: string; joinedAt: number } | null;
+    if (waiting && waiting.id !== selfId && Date.now() - waiting.joinedAt < 60_000) {
+      localStorage.removeItem(storageKey);
+      bc.postMessage({ kind: 'match', id: waiting.id, code: waiting.code });
+      finish(waiting.code);
+    } else {
+      localStorage.setItem(storageKey, JSON.stringify({ id: selfId, code, joinedAt: Date.now() }));
+    }
+  } catch {
+    localStorage.setItem(storageKey, JSON.stringify({ id: selfId, code, joinedAt: Date.now() }));
+  }
+
+  return {
+    cancel: () => {
+      matched = true;
+      try {
+        const current = JSON.parse(localStorage.getItem(storageKey) || 'null') as { id?: string } | null;
+        if (current?.id === selfId) localStorage.removeItem(storageKey);
+      } catch {
+        // ignore
+      }
+      bc.close();
+    },
+  };
 }

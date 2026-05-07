@@ -7,6 +7,7 @@ import { HealthGemRack } from '../components/ui/HealthGemRack';
 import { SelectedFavorShelf } from '../components/ui/SelectedFavorShelf';
 import GameScene from '../scenes/GameScene';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DIFFICULTY_LABEL } from '../ai/orlogAI';
 
 function phaseLabel(phase: string) {
   switch (phase) {
@@ -320,7 +321,7 @@ export default function GameScreen() {
       )}
       {aiMode && (
         <div className="orlog-session-badge absolute bottom-3 left-3 md:bottom-5 md:left-5 z-30 text-[10px] md:text-xs uppercase tracking-widest text-text-secondary/70" data-testid="solo-mode-badge">
-          Vs <span className="text-gold font-bold">{aiMode === 'skald' ? 'Skald' : aiMode === 'vikingr' ? 'Vikingr' : 'Berserkr'}</span>
+          Vs <span className="text-gold font-bold">{DIFFICULTY_LABEL[aiMode]}</span>
         </div>
       )}
     </div>

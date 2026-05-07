@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useStore } from '../store/useGameStore';
 import { WoodenButton } from '../components/ui/WoodenButton';
+import { TutorialModal } from '../components/ui/TutorialModal';
 import { isRealSupabase } from '../multiplayer/channel';
 import type { Difficulty } from '../ai/orlogAI';
 import { DIFFICULTY_LABEL, DIFFICULTY_SUBTITLE } from '../ai/orlogAI';
 import { readUrlSession } from '../utils/sessionHash';
 import { FAVOR_LOADOUT_SIZE, GOD_FAVORS } from '../game/types';
 
-const DIFFS: Difficulty[] = ['skald', 'vikingr', 'berserkr'];
+const DIFFS: Difficulty[] = ['skald', 'vikingr', 'jarl', 'berserkr'];
+const DIFFICULTY_RUNE: Record<Difficulty, string> = {
+  skald: 'ᛋ',
+  vikingr: 'ᚢ',
+  jarl: 'ᛃ',
+  berserkr: 'ᛒ',
+};
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.orlog.play';
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || 'https://orlog.vercel.app';
 
 // Nordic gods + legendary figures used as default names.
 const NORDIC_NAMES = [
@@ -27,6 +37,8 @@ export default function HomeScreen() {
   const setName = useStore((s) => s.setName);
   const hostSession = useStore((s) => s.hostSession);
   const joinSession = useStore((s) => s.joinSession);
+  const quickMatch = useStore((s) => s.quickMatch);
+  const cancelMatchmaking = useStore((s) => s.cancelMatchmaking);
   const hostSoloSession = useStore((s) => s.hostSoloSession);
   const favorLoadout = useStore((s) => s.favorLoadout);
   const setFavorLoadout = useStore((s) => s.setFavorLoadout);
@@ -35,12 +47,15 @@ export default function HomeScreen() {
   const ambientOn = useStore((s) => s.ambientOn);
   const toggleAmbient = useStore((s) => s.toggleAmbient);
   const error = useStore((s) => s.error);
+  const matchmaking = useStore((s) => s.matchmaking);
   // On mount, if URL hash has a code, prefill join input + auto-rejoin
   const initial = useState(() => readUrlSession())[0];
   const [code, setCode] = useState(initial.code || '');
   const [mode, setMode] = useState<'idle' | 'join' | 'solo'>(
     initial.code ? 'join' : initial.ai ? 'solo' : 'idle',
   );
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const isAndroidApp = Capacitor.getPlatform() === 'android';
 
   const toggleFavor = (id: string) => {
     if (favorLoadout.includes(id)) {
@@ -93,6 +108,41 @@ export default function HomeScreen() {
           <p className="text-[var(--color-text-secondary)]/70 mt-3 leading-relaxed text-xs md:text-sm max-w-lg italic">
             * Fan-made dice battle inspired by the Orlog mini-game from Assassin's Creed Valhalla.
           </p>
+          <div className="orlog-home-utility-row mt-5 flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setTutorialOpen(true)}
+              className="home-tutorial-plaque"
+              data-testid="tutorial-button"
+            >
+              <span className="home-tutorial-seal" aria-hidden="true">?</span>
+              <span className="home-tutorial-copy">
+                <span>How to Play</span>
+                <small>Six-step visual guide</small>
+              </span>
+            </button>
+            <a
+              href={isAndroidApp ? WEBSITE_URL : PLAY_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="home-platform-badge"
+              data-testid="platform-link"
+              aria-label={isAndroidApp ? 'Play ORLOG on the website' : 'Get ORLOG on Google Play'}
+            >
+              <span className="platform-link-icon" aria-hidden="true">
+                {isAndroidApp ? (
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M4 5.5C4 4.1 5.1 3 6.5 3h11C18.9 3 20 4.1 20 5.5v8c0 1.4-1.1 2.5-2.5 2.5h-4.2v2H16v2H8v-2h2.7v-2H6.5C5.1 16 4 14.9 4 13.5v-8Zm2.5-.3a.3.3 0 0 0-.3.3v8c0 .2.1.3.3.3h11c.2 0 .3-.1.3-.3v-8a.3.3 0 0 0-.3-.3h-11Z" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="m5 3 12.8 7.3c1.5.9 1.5 2.5 0 3.4L5 21c-.8.4-1.5 0-1.5-.9V3.9C3.5 3 4.2 2.6 5 3Zm1 3.5v11l5.2-5.5L6 6.5Zm1.1-.8 5.2 5.5 2.1-2.2-7.3-3.3Zm7.3 9.3-2.1-2.2-5.2 5.5 7.3-3.3Zm1.8-1 1-.6c.5-.3.5-.5 0-.8l-1-.6-2.4 2 2.4 2Z" />
+                  </svg>
+                )}
+              </span>
+              <span>{isAndroidApp ? 'Web' : 'Android'}</span>
+            </a>
+          </div>
 
           <div className="mt-8 parchment grain-overlay relative p-5 md:p-6 max-w-lg rounded-sm">
             <label className="block text-xs md:text-sm uppercase tracking-widest text-[#3a2a18] mb-2">
@@ -176,6 +226,23 @@ export default function HomeScreen() {
 
             <div className="flex flex-col sm:flex-row gap-3 mt-3">
               <WoodenButton
+                variant="primary"
+                onClick={matchmaking ? cancelMatchmaking : quickMatch}
+                className="flex-1"
+                data-testid="quick-match-button"
+              >
+                {matchmaking ? 'Cancel Search' : 'Find Online Match'}
+              </WoodenButton>
+            </div>
+
+            {matchmaking && (
+              <div className="mt-3 text-xs uppercase tracking-widest text-[#5c4427]" data-testid="matchmaking-status">
+                Searching for a worthy opponent...
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-3">
+              <WoodenButton
                 variant="gold"
                 onClick={() => setMode((m) => (m === 'solo' ? 'idle' : 'solo'))}
                 className="flex-1"
@@ -223,7 +290,7 @@ export default function HomeScreen() {
                   Choose a Worthy Foe
                 </label>
                 <div className="grid grid-cols-1 gap-2">
-                  {DIFFS.map((d, i) => (
+                  {DIFFS.map((d) => (
                     <button
                       key={d}
                       onClick={() => hostSoloSession(d)}
@@ -234,7 +301,7 @@ export default function HomeScreen() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="rune-title text-2xl text-[var(--color-gold)] w-7 text-center">
-                            {i === 0 ? 'ᛋ' : i === 1 ? 'ᚢ' : 'ᛒ'}
+                            {DIFFICULTY_RUNE[d]}
                           </span>
                           <div>
                             <div className="heading-carved text-base text-[var(--color-text-primary)]">
@@ -300,6 +367,11 @@ export default function HomeScreen() {
           </div>
         </div>
       </div>
+      <TutorialModal
+        key={tutorialOpen ? 'tutorial-open' : 'tutorial-closed'}
+        open={tutorialOpen}
+        onClose={() => setTutorialOpen(false)}
+      />
     </div>
   );
 }

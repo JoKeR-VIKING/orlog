@@ -67,8 +67,13 @@ export function freshSnapshot(
   };
 }
 
-export function freshSoloSnapshot(hostName = 'Host', guestName = 'Guest', hostFavors = DEFAULT_FAVOR_LOADOUT): GameSnapshot {
-  return freshSnapshot(hostName, guestName, hostFavors, AI_FAVOR_LOADOUT);
+export function freshSoloSnapshot(
+  hostName = 'Host',
+  guestName = 'Guest',
+  hostFavors = DEFAULT_FAVOR_LOADOUT,
+  guestFavors = AI_FAVOR_LOADOUT,
+): GameSnapshot {
+  return freshSnapshot(hostName, guestName, hostFavors, guestFavors);
 }
 
 // Deterministic roll of 6 dice from a seed string — used across host & guest
@@ -300,6 +305,24 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
     });
   });
 
+  order.forEach((side) => {
+    const target = opposite(side);
+    const steal = counts[side].steal;
+    if (steal <= 0) return;
+    const stolen = Math.min(steal, resolutionFavor[target]);
+    resolutionFavor[target] -= stolen;
+    resolutionFavor[side] += stolen;
+    steps.push({
+      id: id++,
+      kind: 'steal',
+      actor: side,
+      target,
+      steal,
+      stolen: 0,
+      text: `${sideName(snap, side)} reaches for ${steal} favor token${steal === 1 ? '' : 's'}.`,
+    });
+  });
+
   selectedGods(snap).forEach(({ side, god }) => {
     if (god.priority < 40) return;
     const target = opposite(side);
@@ -340,21 +363,6 @@ export function buildResolutionSteps(snap: GameSnapshot): ResolutionStep[] {
       default:
         break;
     }
-  });
-
-  order.forEach((side) => {
-    const target = opposite(side);
-    const steal = counts[side].steal;
-    if (steal <= 0) return;
-    steps.push({
-      id: id++,
-      kind: 'steal',
-      actor: side,
-      target,
-      steal,
-      stolen: 0,
-      text: `${sideName(snap, side)} reaches for ${steal} favor token${steal === 1 ? '' : 's'}.`,
-    });
   });
 
   return steps;
