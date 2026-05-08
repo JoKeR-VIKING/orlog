@@ -9,7 +9,6 @@ import type { Difficulty } from '../ai/orlogAI';
 import { DIFFICULTY_LABEL, DIFFICULTY_SUBTITLE } from '../ai/orlogAI';
 import { readUrlSession } from '../utils/sessionHash';
 import { FAVOR_LOADOUT_SIZE, GOD_FAVORS } from '../game/types';
-import { showAchievements } from '../achievements/playGames';
 
 const DIFFS: Difficulty[] = ['skald', 'vikingr', 'jarl', 'berserkr'];
 const DIFFICULTY_RUNE: Record<Difficulty, string> = {
@@ -119,19 +118,6 @@ export default function HomeScreen() {
             </span>
             <strong>Web</strong>
           </a>
-          <button
-            type="button"
-            onClick={showAchievements}
-            className="android-home-action"
-            data-testid="android-achievements-button"
-            aria-label="Open Play Games achievements"
-          >
-            <span aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="img">
-                <path d="M7 3h10v2h3v3.2c0 2.2-1.5 4.1-3.6 4.6-.6 1.5-1.8 2.7-3.4 3.1V19h4v2H7v-2h4v-3.1c-1.6-.4-2.8-1.6-3.4-3.1C5.5 12.3 4 10.4 4 8.2V5h3V3Zm0 4H6v1.2c0 1 .5 1.9 1.3 2.4C7.1 9.8 7 8.9 7 8V7Zm10 1c0 .9-.1 1.8-.3 2.6.8-.5 1.3-1.4 1.3-2.4V7h-1v1Zm-8-3v3c0 3 1.2 5.8 3 5.8S15 11 15 8V5H9Z" />
-              </svg>
-            </span>
-          </button>
         </div>
       )}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-12 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-10 md:gap-14 items-center min-h-full">
@@ -186,22 +172,6 @@ export default function HomeScreen() {
               </span>
               <span>{isAndroidApp ? 'Web' : 'Android'}</span>
             </a>
-            {isAndroidApp && (
-              <button
-                type="button"
-                onClick={showAchievements}
-                className="home-platform-badge"
-                data-testid="achievements-button"
-                aria-label="Open Play Games achievements"
-              >
-                <span className="platform-link-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img">
-                    <path d="M7 3h10v2h3v3.2c0 2.2-1.5 4.1-3.6 4.6-.6 1.5-1.8 2.7-3.4 3.1V19h4v2H7v-2h4v-3.1c-1.6-.4-2.8-1.6-3.4-3.1C5.5 12.3 4 10.4 4 8.2V5h3V3Zm0 4H6v1.2c0 1 .5 1.9 1.3 2.4C7.1 9.8 7 8.9 7 8V7Zm10 1c0 .9-.1 1.8-.3 2.6.8-.5 1.3-1.4 1.3-2.4V7h-1v1Zm-8-3v3c0 3 1.2 5.8 3 5.8S15 11 15 8V5H9Z" />
-                  </svg>
-                </span>
-                <span>Achievements</span>
-              </button>
-            )}
           </div>
           <p className="text-text-secondary mt-5 leading-relaxed text-base md:text-lg max-w-lg">
             Cast the bones, call upon the Æsir, and carve your foe's fate into the Norns' cloth.

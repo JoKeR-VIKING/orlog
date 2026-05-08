@@ -1,13 +1,11 @@
 package com.orlog.play;
 
 import android.app.Activity;
-import android.content.Intent;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.gms.games.GamesSignInClient;
 import com.google.android.gms.games.PlayGames;
@@ -89,55 +87,6 @@ public class PlayGamesAchievementsPlugin extends Plugin {
         });
     }
 
-    @PluginMethod
-    public void showAchievements(PluginCall call) {
-        Activity activity = getActivity();
-        if (activity == null) {
-            call.reject("Activity is not available.");
-            return;
-        }
-
-        runWhenAuthenticated(call, activity, true, () -> openAchievements(call, activity));
-    }
-
-    @PluginMethod
-    public void submitLeaderboardScore(PluginCall call) {
-        Activity activity = getActivity();
-        if (activity == null) {
-            call.reject("Activity is not available.");
-            return;
-        }
-        String leaderboardId = call.getString("leaderboardId", "");
-        int score = call.getInt("score", 0);
-        if (leaderboardId.isEmpty()) {
-            call.reject("leaderboardId is required.");
-            return;
-        }
-        if (score <= 0) {
-            call.resolve();
-            return;
-        }
-        runWhenAuthenticated(call, activity, false, () -> {
-            PlayGames.getLeaderboardsClient(activity).submitScore(leaderboardId, score);
-            call.resolve();
-        });
-    }
-
-    @PluginMethod
-    public void showLeaderboard(PluginCall call) {
-        Activity activity = getActivity();
-        if (activity == null) {
-            call.reject("Activity is not available.");
-            return;
-        }
-        String leaderboardId = call.getString("leaderboardId", "");
-        if (leaderboardId.isEmpty()) {
-            call.reject("leaderboardId is required.");
-            return;
-        }
-        runWhenAuthenticated(call, activity, true, () -> openLeaderboard(call, activity, leaderboardId));
-    }
-
     private void runWhenAuthenticated(PluginCall call, Activity activity, boolean interactive, Runnable action) {
         GamesSignInClient signInClient = PlayGames.getGamesSignInClient(activity);
         signInClient.isAuthenticated()
@@ -161,28 +110,6 @@ public class PlayGamesAchievementsPlugin extends Plugin {
                     .addOnFailureListener(error -> call.reject("Unable to sign in to Play Games.", error));
             })
             .addOnFailureListener(error -> call.reject("Unable to check Play Games authentication.", error));
-    }
-
-    @ActivityCallback
-    private void showAchievementsResult(PluginCall call, Intent result) {
-        if (call != null) call.resolve();
-    }
-
-    private void openAchievements(PluginCall call, Activity activity) {
-        PlayGames.getAchievementsClient(activity).getAchievementsIntent()
-            .addOnSuccessListener(intent -> startActivityForResult(call, intent, "showAchievementsResult"))
-            .addOnFailureListener(error -> call.reject("Unable to show Play Games achievements.", error));
-    }
-
-    private void openLeaderboard(PluginCall call, Activity activity, String leaderboardId) {
-        PlayGames.getLeaderboardsClient(activity).getLeaderboardIntent(leaderboardId)
-            .addOnSuccessListener(intent -> startActivityForResult(call, intent, "showLeaderboardResult"))
-            .addOnFailureListener(error -> call.reject("Unable to show Play Games leaderboard.", error));
-    }
-
-    @ActivityCallback
-    private void showLeaderboardResult(PluginCall call, Intent result) {
-        if (call != null) call.resolve();
     }
 
     private void resolveAuth(PluginCall call, boolean authenticated) {

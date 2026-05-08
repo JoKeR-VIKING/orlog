@@ -7,7 +7,6 @@ interface PlayGamesAchievementsPlugin {
   signIn(): Promise<{ authenticated: boolean }>;
   unlock(options: { achievementId: string }): Promise<void>;
   increment(options: { achievementId: string; steps: number }): Promise<void>;
-  showAchievements(): Promise<void>;
 }
 
 const PlayGamesAchievements = registerPlugin<PlayGamesAchievementsPlugin>('PlayGamesAchievements');
@@ -47,15 +46,6 @@ export async function incrementAchievement(key: AchievementKey, steps = 1) {
     await PlayGamesAchievements.increment({ achievementId, steps });
   } catch (error) {
     console.warn(`Unable to increment Play Games achievement ${key}.`, error);
-  }
-}
-
-export async function showAchievements() {
-  if (!isAndroid()) return;
-  try {
-    await PlayGamesAchievements.showAchievements();
-  } catch (error) {
-    console.warn('Unable to show Play Games achievements.', error);
   }
 }
 

@@ -30,6 +30,7 @@ next-env.d.ts
 /build
 dist/
 dist
+android/app/release
 
 # Environment files (comprehensive coverage)
 
