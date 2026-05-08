@@ -8,6 +8,8 @@ import { SelectedFavorShelf } from '../components/ui/SelectedFavorShelf';
 import GameScene from '../scenes/GameScene';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DIFFICULTY_LABEL } from '../ai/orlogAI';
+import { GOD_FAVOR_MAP } from '../game/types';
+import type { PlayerSide, ResolutionStep } from '../game/types';
 
 function phaseLabel(phase: string) {
   switch (phase) {
@@ -24,6 +26,104 @@ function phaseLabel(phase: string) {
     default:
       return phase;
   }
+}
+
+function relativeSideLabel(side: PlayerSide, selfSide: PlayerSide) {
+  return side === selfSide ? 'You' : 'Opponent';
+}
+
+function godEffectLines(step: Extract<ResolutionStep, { kind: 'god' }>, selfSide: PlayerSide) {
+  if (!step.invoked) return [step.text.replace(/^.*?:\s*/, '')];
+
+  const actor = relativeSideLabel(step.actor, selfSide);
+  const target = relativeSideLabel(step.target, selfSide);
+  const effects = [step.text.replace(/^.*?:\s*/, '')];
+
+  if (step.targetHpDelta < 0) effects.push(`${target} took ${Math.abs(step.targetHpDelta)} damage.`);
+  if (step.actorHpDelta > 0) effects.push(`${actor} healed ${step.actorHpDelta} health.`);
+  if (step.actorFavorDelta > 0) effects.push(`${actor} gained ${step.actorFavorDelta} favor.`);
+  if (step.targetFavorDelta < 0) effects.push(`${target} lost ${Math.abs(step.targetFavorDelta)} favor.`);
+  if (step.targetFavorDelta > 0) effects.push(`${target} gained ${step.targetFavorDelta} favor.`);
+
+  return Array.from(new Set(effects));
+}
+
+function GodFavorSplash({ step, selfSide }: { step: ResolutionStep | null | undefined; selfSide: PlayerSide }) {
+  if (!step || step.kind !== 'god') return null;
+
+  const god = GOD_FAVOR_MAP[step.favorId];
+  const actor = relativeSideLabel(step.actor, selfSide);
+  const lines = godEffectLines(step, selfSide);
+
+  return (
+    <div
+      key={step.id}
+      className={`god-favor-splash god-favor-${step.favorId} ${step.invoked ? '' : 'not-invoked'}`}
+      role="status"
+      aria-live="polite"
+      data-testid="god-favor-splash"
+    >
+      <div className="god-favor-splash-rune" aria-hidden="true">
+        {god?.icon || 'ᚱ'}
+      </div>
+      <div className="god-favor-splash-copy">
+        <div className="god-favor-splash-kicker">
+          {step.invoked ? `${actor} invoked` : `${actor} failed to invoke`}
+        </div>
+        <div className="god-favor-splash-title">{god?.name || 'God Favor'}</div>
+        <div className="god-favor-splash-effects">
+          {lines.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MomentumCallouts({
+  self,
+  opponent,
+  round,
+}: {
+  self: { hp: number; favor: number };
+  opponent: { hp: number; favor: number };
+  round: number;
+}) {
+  const favorGap = self.favor - opponent.favor;
+  const hpGap = self.hp - opponent.hp;
+  const callouts: { label: string; detail: string; tone: 'danger' | 'edge' | 'warning' | 'neutral' }[] = [];
+
+  if (self.hp <= 3) {
+    callouts.push({ label: 'Vulnerable', detail: `${self.hp} health left`, tone: 'danger' });
+  } else if (opponent.hp <= 3) {
+    callouts.push({ label: 'Foe Near Defeat', detail: `${opponent.hp} health left`, tone: 'edge' });
+  } else if (round >= 5 && Math.min(self.hp, opponent.hp) <= 6) {
+    callouts.push({ label: 'Critical Round', detail: 'Low health battle', tone: 'warning' });
+  }
+
+  if (favorGap >= 4) {
+    callouts.push({ label: 'Favor Advantage', detail: `+${favorGap} favor`, tone: 'edge' });
+  } else if (favorGap <= -4) {
+    callouts.push({ label: 'Favor Pressure', detail: `${Math.abs(favorGap)} behind`, tone: 'warning' });
+  } else if (hpGap <= -5) {
+    callouts.push({ label: 'Comeback Needed', detail: `${Math.abs(hpGap)} health behind`, tone: 'danger' });
+  } else if (hpGap >= 5) {
+    callouts.push({ label: 'Press Advantage', detail: `${hpGap} health ahead`, tone: 'edge' });
+  }
+
+  if (callouts.length === 0) return null;
+
+  return (
+    <div className="orlog-momentum-callouts" aria-live="polite" data-testid="momentum-callouts">
+      {callouts.slice(0, 2).map((callout) => (
+        <div key={callout.label} className={`momentum-chip ${callout.tone}`}>
+          <span>{callout.label}</span>
+          <small>{callout.detail}</small>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function GameScreen() {
@@ -160,6 +260,11 @@ export default function GameScreen() {
           </div>
         )}
       </div>
+
+      <GodFavorSplash step={snap.resolutionStep} selfSide={selfSide} />
+      {snap.phase !== 'game-over' && (
+        <MomentumCallouts self={self} opponent={opponent} round={snap.round} />
+      )}
 
       {mobileLogOpen && (
         <div className="orlog-mobile-log-modal" role="dialog" aria-modal="true" aria-labelledby="mobile-log-title">

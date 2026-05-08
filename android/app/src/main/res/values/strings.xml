@@ -4,4 +4,5 @@
     <string name="title_activity_main">ORLOG</string>
     <string name="package_name">com.orlog.play</string>
     <string name="custom_url_scheme">com.orlog.play</string>
+    <string translatable="false" name="game_services_project_id">396276342594</string>
 </resources>

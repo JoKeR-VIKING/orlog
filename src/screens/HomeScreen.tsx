@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useStore } from '../store/useGameStore';
 import { WoodenButton } from '../components/ui/WoodenButton';
@@ -8,6 +9,7 @@ import type { Difficulty } from '../ai/orlogAI';
 import { DIFFICULTY_LABEL, DIFFICULTY_SUBTITLE } from '../ai/orlogAI';
 import { readUrlSession } from '../utils/sessionHash';
 import { FAVOR_LOADOUT_SIZE, GOD_FAVORS } from '../game/types';
+import { showAchievements } from '../achievements/playGames';
 
 const DIFFS: Difficulty[] = ['skald', 'vikingr', 'jarl', 'berserkr'];
 const DIFFICULTY_RUNE: Record<Difficulty, string> = {
@@ -17,7 +19,7 @@ const DIFFICULTY_RUNE: Record<Difficulty, string> = {
   berserkr: 'ᛒ',
 };
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.orlog.play';
-const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || 'https://orlog.vercel.app';
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || 'https://orlog-ac.vercel.app';
 
 // Nordic gods + legendary figures used as default names.
 const NORDIC_NAMES = [
@@ -57,6 +59,13 @@ export default function HomeScreen() {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const isAndroidApp = Capacitor.getPlatform() === 'android';
 
+  const openPlatformLink = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isAndroidApp) return;
+    event.preventDefault();
+    const opened = window.open(WEBSITE_URL, '_blank', 'noopener,noreferrer');
+    if (!opened) window.location.assign(WEBSITE_URL);
+  };
+
   const toggleFavor = (id: string) => {
     if (favorLoadout.includes(id)) {
       setFavorLoadout(favorLoadout.filter((favorId) => favorId !== id));
@@ -82,7 +91,49 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <div className="orlog-home-screen relative w-full h-full overflow-auto">
+    <div className={`orlog-home-screen relative w-full h-full overflow-auto ${isAndroidApp ? 'android-app' : ''}`}>
+      {isAndroidApp && (
+        <div className="android-home-action-bar" data-testid="android-home-action-bar">
+          <button
+            type="button"
+            onClick={() => setTutorialOpen(true)}
+            className="android-home-action primary"
+            data-testid="android-tutorial-button"
+          >
+            <span aria-hidden="true">?</span>
+            <strong>How to Play</strong>
+          </button>
+          <a
+            href={WEBSITE_URL}
+            target="_blank"
+            rel="noreferrer"
+            onClick={openPlatformLink}
+            className="android-home-action"
+            data-testid="android-web-link"
+            aria-label="Play ORLOG on the website"
+          >
+            <span aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img">
+                <path d="M4 5.5C4 4.1 5.1 3 6.5 3h11C18.9 3 20 4.1 20 5.5v8c0 1.4-1.1 2.5-2.5 2.5h-4.2v2H16v2H8v-2h2.7v-2H6.5C5.1 16 4 14.9 4 13.5v-8Zm2.5-.3a.3.3 0 0 0-.3.3v8c0 .2.1.3.3.3h11c.2 0 .3-.1.3-.3v-8a.3.3 0 0 0-.3-.3h-11Z" />
+              </svg>
+            </span>
+            <strong>Web</strong>
+          </a>
+          <button
+            type="button"
+            onClick={showAchievements}
+            className="android-home-action"
+            data-testid="android-achievements-button"
+            aria-label="Open Play Games achievements"
+          >
+            <span aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="img">
+                <path d="M7 3h10v2h3v3.2c0 2.2-1.5 4.1-3.6 4.6-.6 1.5-1.8 2.7-3.4 3.1V19h4v2H7v-2h4v-3.1c-1.6-.4-2.8-1.6-3.4-3.1C5.5 12.3 4 10.4 4 8.2V5h3V3Zm0 4H6v1.2c0 1 .5 1.9 1.3 2.4C7.1 9.8 7 8.9 7 8V7Zm10 1c0 .9-.1 1.8-.3 2.6.8-.5 1.3-1.4 1.3-2.4V7h-1v1Zm-8-3v3c0 3 1.2 5.8 3 5.8S15 11 15 8V5H9Z" />
+              </svg>
+            </span>
+          </button>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-10 py-6 md:py-12 grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-10 md:gap-14 items-center min-h-full">
         <div className="fade-up">
           <div className="rune-divider text-sm mb-4">
@@ -92,21 +143,14 @@ export default function HomeScreen() {
             <img
               src="/orlog-logo.svg"
               alt="ORLOG"
-              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,0.65)]"
             />
-            <h1 className="heading-carved text-4xl sm:text-5xl md:text-7xl font-bold text-[var(--color-text-primary)] leading-[1.05]">
+            <h1 className="heading-carved text-4xl sm:text-5xl md:text-7xl font-bold text-text-primary leading-[1.05]">
               ORLOG
             </h1>
           </div>
-          <p className="text-[var(--color-gold)] italic tracking-widest uppercase text-sm md:text-base mt-2">
+          <p className="text-gold italic tracking-widest uppercase text-sm md:text-base mt-2">
             A Game of Fate &middot; 800 AD
-          </p>
-          <p className="text-[var(--color-text-secondary)] mt-5 leading-relaxed text-base md:text-lg max-w-lg">
-            Cast the bones, call upon the Æsir, and carve your foe's fate into the Norns' cloth.
-            Two warriors, six dice each, fifteen stones of life &mdash; only one shall tell the saga.
-          </p>
-          <p className="text-[var(--color-text-secondary)]/70 mt-3 leading-relaxed text-xs md:text-sm max-w-lg italic">
-            * Fan-made dice battle inspired by the Orlog mini-game from Assassin's Creed Valhalla.
           </p>
           <div className="orlog-home-utility-row mt-5 flex flex-wrap items-center gap-2.5">
             <button
@@ -118,13 +162,13 @@ export default function HomeScreen() {
               <span className="home-tutorial-seal" aria-hidden="true">?</span>
               <span className="home-tutorial-copy">
                 <span>How to Play</span>
-                <small>Six-step visual guide</small>
               </span>
             </button>
             <a
               href={isAndroidApp ? WEBSITE_URL : PLAY_STORE_URL}
               target="_blank"
               rel="noreferrer"
+              onClick={openPlatformLink}
               className="home-platform-badge"
               data-testid="platform-link"
               aria-label={isAndroidApp ? 'Play ORLOG on the website' : 'Get ORLOG on Google Play'}
@@ -142,8 +186,30 @@ export default function HomeScreen() {
               </span>
               <span>{isAndroidApp ? 'Web' : 'Android'}</span>
             </a>
+            {isAndroidApp && (
+              <button
+                type="button"
+                onClick={showAchievements}
+                className="home-platform-badge"
+                data-testid="achievements-button"
+                aria-label="Open Play Games achievements"
+              >
+                <span className="platform-link-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img">
+                    <path d="M7 3h10v2h3v3.2c0 2.2-1.5 4.1-3.6 4.6-.6 1.5-1.8 2.7-3.4 3.1V19h4v2H7v-2h4v-3.1c-1.6-.4-2.8-1.6-3.4-3.1C5.5 12.3 4 10.4 4 8.2V5h3V3Zm0 4H6v1.2c0 1 .5 1.9 1.3 2.4C7.1 9.8 7 8.9 7 8V7Zm10 1c0 .9-.1 1.8-.3 2.6.8-.5 1.3-1.4 1.3-2.4V7h-1v1Zm-8-3v3c0 3 1.2 5.8 3 5.8S15 11 15 8V5H9Z" />
+                  </svg>
+                </span>
+                <span>Achievements</span>
+              </button>
+            )}
           </div>
-
+          <p className="text-text-secondary mt-5 leading-relaxed text-base md:text-lg max-w-lg">
+            Cast the bones, call upon the Æsir, and carve your foe's fate into the Norns' cloth.
+            Two warriors, six dice each, fifteen stones of life &mdash; only one shall tell the saga.
+          </p>
+          <p className="text-text-secondary/70 mt-3 leading-relaxed text-xs md:text-sm max-w-lg italic">
+            * Fan-made dice battle inspired by the Orlog mini-game from Assassin's Creed Valhalla.
+          </p>
           <div className="mt-8 parchment grain-overlay relative p-5 md:p-6 max-w-lg rounded-sm">
             <label className="block text-xs md:text-sm uppercase tracking-widest text-[#3a2a18] mb-2">
               Your Name
@@ -154,7 +220,7 @@ export default function HomeScreen() {
               onChange={(e) => setName(e.target.value.slice(0, 20))}
               maxLength={20}
               placeholder="Thy name, warrior"
-              className="w-full bg-[#1a1412] text-[var(--color-text-primary)] border border-[#4a4e53] rounded-sm px-3 py-2 font-[var(--font-heading)] tracking-wider focus:border-[var(--color-gold)] focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40"
+              className="w-full bg-bg-primary text-text-primary border border-iron rounded-sm px-3 py-2 font-(--font-heading) tracking-wider focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/40"
               data-testid="name-input"
             />
 
@@ -177,8 +243,8 @@ export default function HomeScreen() {
                       type="button"
                       onClick={() => toggleFavor(favor.id)}
                       disabled={disabled}
-                      className={`text-left bg-[#1a1412] border-2 rounded-sm px-3 py-2 transition-all disabled:opacity-45 disabled:cursor-not-allowed ${
-                        selected ? 'border-[var(--color-gold)]' : 'border-[#4a3525] hover:border-[var(--color-gold)]'
+                      className={`text-left bg-bg-primary border-2 rounded-sm px-3 py-2 transition-all disabled:opacity-45 disabled:cursor-not-allowed ${
+                        selected ? 'border-gold' : 'border-[#4a3525] hover:border-gold'
                       }`}
                       style={{
                         boxShadow: selected
@@ -188,14 +254,14 @@ export default function HomeScreen() {
                       data-testid={`loadout-favor-${favor.id}`}
                     >
                       <div className="flex items-start gap-2 min-w-0">
-                        <span className="rune-title text-xl text-[var(--color-gold)] w-6 text-center flex-shrink-0">
+                        <span className="rune-title text-xl text-gold w-6 text-center shrink-0">
                           {favor.icon}
                         </span>
                         <div className="min-w-0">
-                          <div className="heading-carved text-xs text-[var(--color-text-primary)] leading-tight break-words">
+                          <div className="heading-carved text-xs text-text-primary leading-tight wrap-break-word">
                             {favor.name}
                           </div>
-                          <div className="text-[10px] text-[var(--color-text-secondary)] leading-snug">
+                          <div className="text-[10px] text-text-secondary leading-snug">
                             <span className="favor-token">⌘</span> {favor.cost} · {favor.description}
                           </div>
                         </div>
@@ -277,7 +343,7 @@ export default function HomeScreen() {
                   </WoodenButton>
                 </div>
                 {error && (
-                  <div className="mt-2 text-sm text-[var(--color-accent)]" data-testid="home-error">
+                  <div className="mt-2 text-sm text-accent" data-testid="home-error">
                     {error}
                   </div>
                 )}
@@ -294,25 +360,25 @@ export default function HomeScreen() {
                     <button
                       key={d}
                       onClick={() => hostSoloSession(d)}
-                      className="text-left bg-[#1a1412] hover:bg-[#251c19] border-2 border-[#4a3525] hover:border-[var(--color-gold)] rounded-sm px-4 py-3 transition-all"
+                      className="text-left bg-bg-primary hover:bg-[#251c19] border-2 border-[#4a3525] hover:border-gold rounded-sm px-4 py-3 transition-all"
                       data-testid={`difficulty-${d}-button`}
                       style={{ boxShadow: 'inset 0 0 8px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4)' }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="rune-title text-2xl text-[var(--color-gold)] w-7 text-center">
+                          <span className="rune-title text-2xl text-gold w-7 text-center">
                             {DIFFICULTY_RUNE[d]}
                           </span>
                           <div>
-                            <div className="heading-carved text-base text-[var(--color-text-primary)]">
+                            <div className="heading-carved text-base text-text-primary">
                               {DIFFICULTY_LABEL[d]}
                             </div>
-                            <div className="text-xs italic text-[var(--color-text-secondary)] leading-snug">
+                            <div className="text-xs italic text-text-secondary leading-snug">
                               {DIFFICULTY_SUBTITLE[d]}
                             </div>
                           </div>
                         </div>
-                        <span className="text-[var(--color-gold)] text-xl">›</span>
+                        <span className="text-gold text-xl">›</span>
                       </div>
                     </button>
                   ))}
@@ -323,14 +389,14 @@ export default function HomeScreen() {
             <div className="flex items-center justify-between gap-2 mt-5 pt-4 border-t border-[#8a7a60]/40">
               <button
                 onClick={toggleSound}
-                className="text-xs uppercase tracking-widest text-[#3a2a18] hover:text-[#8b261d] transition-colors"
+                className="text-xs uppercase tracking-widest text-[#3a2a18] hover:text-blood transition-colors"
                 data-testid="toggle-sound"
               >
                 Sound: {soundOn ? 'On' : 'Off'}
               </button>
               <button
                 onClick={toggleAmbient}
-                className="text-xs uppercase tracking-widest text-[#3a2a18] hover:text-[#8b261d] transition-colors"
+                className="text-xs uppercase tracking-widest text-[#3a2a18] hover:text-blood transition-colors"
                 data-testid="toggle-ambient"
               >
                 Ambient Drone: {ambientOn ? 'On' : 'Off'}
@@ -339,7 +405,7 @@ export default function HomeScreen() {
           </div>
 
           {!isRealSupabase() && (
-            <p className="mt-5 text-xs text-[var(--color-text-secondary)] italic max-w-lg" data-testid="local-mode-notice">
+            <p className="mt-5 text-xs text-text-secondary italic max-w-lg" data-testid="local-mode-notice">
               &#9888; Multiplayer running in local mode (no live Supabase keys). Open a second tab to play yourself, or pick "Play Vs the Æsir" for solo.
             </p>
           )}
@@ -353,15 +419,15 @@ export default function HomeScreen() {
                  }}
             />
             <div className="relative z-10 text-center">
-              <div className="rune-title text-4xl text-[var(--color-gold)] tracking-widest">ᚠᚢᚦᚨᚱᚲ</div>
+              <div className="rune-title text-4xl text-gold tracking-widest">ᚠᚢᚦᚨᚱᚲ</div>
               <h2 className="heading-carved text-xl md:text-2xl mt-3">Rules of Orlog</h2>
-              <ul className="mt-4 space-y-2 text-sm md:text-base text-[var(--color-text-primary)] text-left">
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> Roll 6 dice, reroll up to twice.</li>
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> Keep dice by clicking them in your tray.</li>
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> Axes / arrows deal damage; helmets / shields block.</li>
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> Hands steal favor ⌘; runes earn favor.</li>
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> Spend ⌘ to call upon the Æsir.</li>
-                <li><span className="text-[var(--color-gold)] font-bold">◆</span> First to lose 15 HP loses the saga.</li>
+              <ul className="mt-4 space-y-2 text-sm md:text-base text-text-primary text-left">
+                <li><span className="text-gold font-bold">◆</span> Roll 6 dice, reroll up to twice.</li>
+                <li><span className="text-gold font-bold">◆</span> Keep dice by clicking them in your tray.</li>
+                <li><span className="text-gold font-bold">◆</span> Axes / arrows deal damage; helmets / shields block.</li>
+                <li><span className="text-gold font-bold">◆</span> Hands steal favor ⌘; runes earn favor.</li>
+                <li><span className="text-gold font-bold">◆</span> Spend ⌘ to call upon the Æsir.</li>
+                <li><span className="text-gold font-bold">◆</span> First to lose 15 HP loses the saga.</li>
               </ul>
             </div>
           </div>

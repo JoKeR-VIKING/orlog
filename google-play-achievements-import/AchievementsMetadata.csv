@@ -1,0 +1,15 @@
+First Saga,Win your first match.,False,,Revealed,10,10
+Skald Slayer,Defeat the Skald AI.,False,,Revealed,10,20
+Vikingr Victor,Defeat the Vikingr AI.,False,,Revealed,15,30
+Jarl Breaker,Defeat the Jarl AI.,False,,Revealed,25,40
+Berserkr Bane,Defeat the Berserkr AI.,False,,Revealed,40,50
+Bloodied Victor,Win a match with exactly 1 health remaining.,False,,Revealed,25,60
+Untouched Fate,Win a match without taking damage.,False,,Revealed,35,70
+Thunder Caller,Invoke Thor's Strike.,False,,Revealed,15,80
+Apple Keeper,Invoke Idun's Rejuvenation.,False,,Revealed,15,90
+Trickster's Mark,Invoke Loki's Trick.,False,,Revealed,15,100
+Norn's Claim,Destroy opponent favor with Skuld's Claim.,False,,Revealed,20,110
+Favor Thief,Steal at least 3 favor in one round.,False,,Revealed,15,120
+Shield Wall,Block 4 or more attacks in one round.,False,,Revealed,20,130
+Divine Timing,Invoke an early and late god favor in the same round.,False,,Revealed,25,140
+Saga Veteran,Win 10 matches.,True,10,Revealed,25,150

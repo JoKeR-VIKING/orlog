@@ -26,6 +26,13 @@ import { audio } from '../audio/sounds';
 import type { Difficulty } from '../ai/orlogAI';
 import { DIFFICULTY_LABEL, aiDelay, generatePlayerActions } from '../ai/orlogAI';
 import { clearUrlSession, writeUrlSession } from '../utils/sessionHash';
+import {
+  type AchievementSessionKind,
+  recordFinalDiceAchievements,
+  recordMatchEndAchievements,
+  recordResolutionAchievementStep,
+  resetAchievementRun,
+} from '../achievements/triggers';
 
 type View = 'home' | 'lobby' | 'game' | 'end';
 
@@ -43,6 +50,7 @@ export interface ConnectionState {
   ambientOn: boolean;
   error: string | null;
   aiMode: Difficulty | null; // when non-null, playing solo vs AI
+  sessionKind: AchievementSessionKind;
   matchmaking: boolean;
 }
 
@@ -227,6 +235,7 @@ function finishResolution(get: () => Store, set: (partial: Partial<Store> | ((s:
     set({ snap: structuredClone(s2), view: 'end' });
     broadcastSnapshot(get);
     const self = get().selfSide;
+    recordMatchEndAchievements(s2, self, get().aiMode);
     if (self && self === w) audio.play('victory');
     else audio.play('defeat');
   } else {
@@ -297,9 +306,12 @@ function runResolutionSequence(
     snap.log = [...snap.log.slice(-20), applied.text];
     set({ snap: structuredClone(snap) });
     broadcastSnapshot(get);
+    recordResolutionAchievementStep(applied, snap.round, get().selfSide);
     playResolutionFloater(set, applied);
     if (applied.kind === 'attack' && applied.blocked > 0) audio.play('block');
     if ((applied.kind === 'attack' && applied.damage > 0) || (applied.kind === 'god' && applied.targetHpDelta < 0)) audio.play('damage');
+    if (applied.kind === 'god' && applied.invoked) audio.playGodFavor(applied.favorId);
+    if (applied.kind === 'god' && applied.actorHpDelta > 0) audio.play('heal');
     if (applied.kind === 'favor' || (applied.kind === 'steal' && applied.stolen > 0)) audio.play('diceReveal');
     if (winner(snap)) {
       setTimeout(() => finishResolution(get, set), 1100);
@@ -435,6 +447,7 @@ function applyAction(
           d.kept = true;
           d.selected = false;
         });
+        recordFinalDiceAchievements(snap, side);
       }
       p.turnRolled = false;
       passRollTurn(snap, side);
@@ -476,6 +489,7 @@ function applyAction(
       if (snap.rematchRequest && snap.rematchRequest !== side) {
         const guestFavors = get().aiMode ? randomAiFavorLoadout() : snap.guest.availableFavors;
         const reset = freshSnapshot(snap.host.name, snap.guest.name, snap.host.availableFavors, guestFavors);
+        resetAchievementRun(get().sessionKind);
         set({ snap: reset, view: 'game', floaters: [] });
         broadcastSnapshot(get);
       } else {
@@ -506,6 +520,7 @@ export const useStore = create<Store>((set, get) => ({
   ambientOn: false,
   error: null,
   aiMode: null,
+  sessionKind: 'code',
   matchmaking: false,
   floaters: [],
   snap: freshSnapshot(),
@@ -535,7 +550,7 @@ export const useStore = create<Store>((set, get) => ({
     const code = randomCode(6);
     const name = get().nameInput || 'Wanderer';
     set({ matchmaking: false });
-    openSession(get, set, code, name, null, get().favorLoadout);
+    openSession(get, set, code, name, null, get().favorLoadout, 'code');
   },
 
   joinSession: (code) => {
@@ -548,7 +563,7 @@ export const useStore = create<Store>((set, get) => ({
     }
     const name = get().nameInput || 'Wanderer';
     set({ matchmaking: false });
-    openSession(get, set, clean, name, null, get().favorLoadout);
+    openSession(get, set, clean, name, null, get().favorLoadout, 'code');
   },
 
   quickMatch: () => {
@@ -558,7 +573,7 @@ export const useStore = create<Store>((set, get) => ({
     matchmakingTicket = findOnlineMatch((matchCode) => {
       matchmakingTicket = null;
       set({ matchmaking: false });
-      openSession(get, set, matchCode, name, null, get().favorLoadout);
+      openSession(get, set, matchCode, name, null, get().favorLoadout, 'matchmaking');
     });
   },
 
@@ -590,12 +605,14 @@ export const useStore = create<Store>((set, get) => ({
       opponentPresent: false,
       opponentLastSeen: 0,
       aiMode: null,
+      sessionKind: 'code',
       view: 'home',
       snap: freshSnapshot(),
       floaters: [],
       error: null,
       matchmaking: false,
     });
+    resetAchievementRun('code');
   },
 
   toggleSound: () => {
@@ -691,6 +708,7 @@ function openSession(
   name: string,
   ai: Difficulty | null,
   favorLoadout: string[],
+  sessionKind: AchievementSessionKind,
 ) {
   const prev = get().channel;
   if (prev) prev.leave();
@@ -699,6 +717,7 @@ function openSession(
 
   const snap = freshSnapshot(name, name === 'Host' ? 'Guest' : 'Opponent', favorLoadout);
   snap.guest.favorLoadoutLocked = false;
+  resetAchievementRun(sessionKind);
 
   set({
     channel,
@@ -709,6 +728,7 @@ function openSession(
     opponentPresent: false,
     opponentLastSeen: Date.now(),
     aiMode: ai,
+    sessionKind,
     matchmaking: false,
     error: null,
     snap,
@@ -763,6 +783,8 @@ function openSession(
     switch (msg.type) {
       case 'state': {
         if (selfSide === 'guest') {
+          recordResolutionAchievementStep(msg.snapshot.resolutionStep, msg.snapshot.round, selfSide);
+          recordMatchEndAchievements(msg.snapshot, selfSide, get().aiMode);
           set({ snap: msg.snapshot, view: msg.snapshot.phase === 'game-over' ? 'end' : 'game' });
         }
         break;
@@ -820,6 +842,7 @@ function openSoloSession(
   };
 
   const aiName = DIFFICULTY_LABEL[difficulty];
+  resetAchievementRun('solo');
   set({
     channel: mockChannel,
     code: null,
@@ -829,6 +852,7 @@ function openSoloSession(
     opponentPresent: true,
     opponentLastSeen: Date.now(),
     aiMode: difficulty,
+    sessionKind: 'solo',
     matchmaking: false,
     error: null,
     snap: freshSoloSnapshot(name, aiName, favorLoadout, randomAiFavorLoadout()),
@@ -837,6 +861,7 @@ function openSoloSession(
   writeUrlSession({ code: null, ai: difficulty });
   if (get().ambientOn) audio.toggleAmbient(true);
   audio.play('horn');
+  maybeScheduleAi(get, set);
 }
 
 export { MAX_ROLLS, MAX_REROLLS };

@@ -14,6 +14,8 @@ type SoundName =
   | 'defeat'
   | 'horn';
 
+type GodFavorTone = 'strike' | 'restore' | 'curse' | 'battle';
+
 interface AmbientNodes {
   osc: OscillatorNode;
   osc2: OscillatorNode;
@@ -65,6 +67,22 @@ class AudioEngine {
         case 'victory': this.victorySfx(ctx); break;
         case 'defeat': this.defeatSfx(ctx); break;
         case 'horn': this.hornSfx(ctx); break;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async playGodFavor(favorId: string) {
+    if (this.muted) return;
+    try {
+      const ctx = await this.ensure();
+      const tone = this.godFavorTone(favorId);
+      switch (tone) {
+        case 'strike': this.godStrikeSfx(ctx); break;
+        case 'restore': this.godRestoreSfx(ctx); break;
+        case 'curse': this.godCurseSfx(ctx); break;
+        case 'battle': this.godBattleSfx(ctx); break;
       }
     } catch {
       // ignore
@@ -284,6 +302,83 @@ class AudioEngine {
       o.connect(g).connect(this.master!);
       o.start(st); o.stop(st + 0.4);
     });
+  }
+
+  private godFavorTone(favorId: string): GodFavorTone {
+    if (favorId === 'thor') return 'strike';
+    if (favorId === 'idun' || favorId === 'heimdall' || favorId === 'hel' || favorId === 'mimir') return 'restore';
+    if (favorId === 'loki' || favorId === 'skuld' || favorId === 'vidar') return 'curse';
+    return 'battle';
+  }
+
+  private godStrikeSfx(ctx: AudioContext) {
+    const t = ctx.currentTime;
+    this.hornSfx(ctx);
+    const crack = ctx.createOscillator();
+    const crackGain = ctx.createGain();
+    crack.type = 'square';
+    crack.frequency.setValueAtTime(980, t + 0.08);
+    crack.frequency.exponentialRampToValueAtTime(120, t + 0.22);
+    crackGain.gain.setValueAtTime(0.26, t + 0.08);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    crack.connect(crackGain).connect(this.master!);
+    crack.start(t + 0.08);
+    crack.stop(t + 0.32);
+    setTimeout(() => this.damageSfx(ctx), 260);
+  }
+
+  private godRestoreSfx(ctx: AudioContext) {
+    const t = ctx.currentTime;
+    const notes = [392, 523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(f, t + i * 0.07);
+      g.gain.setValueAtTime(0, t + i * 0.07);
+      g.gain.linearRampToValueAtTime(0.1, t + i * 0.07 + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + 0.44);
+      o.connect(g).connect(this.master!);
+      o.start(t + i * 0.07);
+      o.stop(t + i * 0.07 + 0.5);
+    });
+  }
+
+  private godCurseSfx(ctx: AudioContext) {
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(260, t);
+    o.frequency.exponentialRampToValueAtTime(54, t + 0.55);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(760, t);
+    filter.frequency.exponentialRampToValueAtTime(220, t + 0.42);
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.62);
+    o.connect(filter).connect(g).connect(this.master!);
+    o.start(t);
+    o.stop(t + 0.68);
+    setTimeout(() => this.blockSfx(ctx), 180);
+  }
+
+  private godBattleSfx(ctx: AudioContext) {
+    const t = ctx.currentTime;
+    this.hornSfx(ctx);
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => this.drumHit(ctx, ctx.currentTime, 0.22), 180 + i * 130);
+    }
+    const ring = ctx.createOscillator();
+    const ringGain = ctx.createGain();
+    ring.type = 'triangle';
+    ring.frequency.setValueAtTime(440, t + 0.1);
+    ring.frequency.exponentialRampToValueAtTime(880, t + 0.42);
+    ringGain.gain.setValueAtTime(0.08, t + 0.1);
+    ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    ring.connect(ringGain).connect(this.master!);
+    ring.start(t + 0.1);
+    ring.stop(t + 0.75);
   }
 
   private hornSfx(ctx: AudioContext) {

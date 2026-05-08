@@ -720,8 +720,287 @@ button,
   display: none;
 }
 
+.god-favor-splash {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 35;
+  width: min(520px, calc(100vw - 28px));
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  pointer-events: none;
+  color: #f4e7cd;
+  background:
+    radial-gradient(circle at 18% 50%, rgba(242, 184, 79, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(54, 36, 22, 0.96), rgba(14, 10, 8, 0.94));
+  border: 1px solid rgba(242, 184, 79, 0.72);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.14),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.28),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 34px rgba(198, 130, 52, 0.42);
+  transform: translate(-50%, -50%);
+  animation: god-favor-splash 1850ms ease-out both;
+}
+
+.god-favor-splash::before,
+.god-favor-splash::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.god-favor-splash::before {
+  inset: -22px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 50%, rgba(242, 184, 79, 0.28), transparent 64%);
+  animation: god-aura 1850ms ease-out both;
+}
+
+.god-favor-splash::after {
+  inset: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 241, 210, 0.22);
+}
+
+.god-favor-splash.not-invoked {
+  border-color: rgba(164, 61, 45, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.1),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.32),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 28px rgba(164, 61, 45, 0.36);
+}
+
+.god-favor-thor {
+  background:
+    linear-gradient(115deg, transparent 0 37%, rgba(255, 247, 188, 0.9) 38% 40%, transparent 41% 100%),
+    linear-gradient(72deg, transparent 0 56%, rgba(255, 247, 188, 0.58) 57% 59%, transparent 60% 100%),
+    radial-gradient(circle at 18% 50%, rgba(242, 184, 79, 0.32), transparent 34%),
+    linear-gradient(180deg, rgba(59, 44, 28, 0.98), rgba(15, 13, 11, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.16),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.28),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 42px rgba(242, 184, 79, 0.62);
+}
+
+.god-favor-idun,
+.god-favor-heimdall,
+.god-favor-hel,
+.god-favor-mimir {
+  border-color: rgba(146, 211, 119, 0.76);
+  background:
+    radial-gradient(circle at 18% 50%, rgba(146, 211, 119, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(36, 52, 32, 0.96), rgba(13, 15, 10, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(234, 255, 205, 0.14),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.28),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 36px rgba(106, 198, 91, 0.45);
+}
+
+.god-favor-skuld,
+.god-favor-loki,
+.god-favor-vidar {
+  border-color: rgba(190, 79, 58, 0.74);
+  background:
+    radial-gradient(circle at 18% 50%, rgba(190, 79, 58, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(48, 26, 23, 0.98), rgba(12, 9, 8, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 210, 190, 0.12),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.3),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 34px rgba(190, 79, 58, 0.42);
+}
+
+.god-favor-baldr,
+.god-favor-ullr,
+.god-favor-skadi,
+.god-favor-brunhild,
+.god-favor-freyr {
+  border-color: rgba(116, 167, 208, 0.74);
+  background:
+    radial-gradient(circle at 18% 50%, rgba(116, 167, 208, 0.26), transparent 34%),
+    linear-gradient(180deg, rgba(29, 42, 54, 0.96), rgba(9, 12, 15, 0.95));
+  box-shadow:
+    inset 0 1px 0 rgba(210, 235, 255, 0.12),
+    inset 0 -16px 24px rgba(0, 0, 0, 0.3),
+    0 16px 34px rgba(0, 0, 0, 0.62),
+    0 0 34px rgba(116, 167, 208, 0.42);
+}
+
+.god-favor-splash-rune {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  color: #2a1606;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 241, 196, 0.96), rgba(221, 154, 57, 0.92) 48%, rgba(94, 58, 14, 0.98) 100%);
+  border: 1px solid rgba(43, 25, 8, 0.9);
+  border-radius: 50%;
+  font-family: var(--font-medieval), serif;
+  font-size: 46px;
+  line-height: 1;
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.2),
+    inset 0 -8px 12px rgba(45, 24, 5, 0.4),
+    0 0 22px rgba(242, 184, 79, 0.35);
+}
+
+.god-favor-splash-copy {
+  min-width: 0;
+}
+
+.god-favor-splash-kicker,
+.god-favor-splash-title {
+  font-family: var(--font-heading), serif;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.72);
+}
+
+.god-favor-splash-kicker {
+  color: rgba(242, 184, 79, 0.88);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.god-favor-splash-title {
+  margin-top: 2px;
+  color: #fff1d2;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.07em;
+}
+
+.god-favor-splash-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.god-favor-splash-effects span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  color: rgba(232, 220, 196, 0.92);
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(138, 122, 96, 0.34);
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+@keyframes god-favor-splash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -44%) scale(0.86);
+    filter: brightness(1.35);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.02);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -56%) scale(0.98);
+  }
+}
+
+@keyframes god-aura {
+  0% { opacity: 0; transform: scale(0.82); }
+  18% { opacity: 0.9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.16); }
+}
+
+.orlog-momentum-callouts {
+  position: absolute;
+  left: 50%;
+  top: 58px;
+  z-index: 19;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: min(620px, calc(100vw - 24px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.momentum-chip {
+  display: grid;
+  gap: 1px;
+  min-width: 132px;
+  padding: 7px 10px;
+  color: rgba(232, 220, 196, 0.92);
+  background: rgba(18, 13, 10, 0.72);
+  border: 1px solid rgba(138, 122, 96, 0.44);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.45),
+    0 7px 16px rgba(0, 0, 0, 0.34);
+  text-align: center;
+  animation: momentum-rise 420ms ease-out both;
+}
+
+.momentum-chip span {
+  font-family: var(--font-heading), serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.momentum-chip small {
+  color: rgba(232, 220, 196, 0.68);
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.momentum-chip.danger {
+  border-color: rgba(196, 69, 54, 0.72);
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(196, 69, 54, 0.26),
+    0 7px 16px rgba(0, 0, 0, 0.34);
+}
+
+.momentum-chip.warning {
+  border-color: rgba(198, 130, 52, 0.72);
+}
+
+.momentum-chip.edge {
+  border-color: rgba(146, 211, 119, 0.66);
+}
+
+@keyframes momentum-rise {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .orlog-home-utility-row {
   align-items: stretch;
+}
+
+.orlog-home-screen.android-app .orlog-home-utility-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: stretch;
+  width: min(100%, 520px);
 }
 
 .home-tutorial-plaque {
@@ -840,6 +1119,110 @@ button,
     border-color 160ms ease,
     background 160ms ease,
     transform 160ms ease;
+}
+
+.orlog-home-screen.android-app .home-tutorial-plaque,
+.orlog-home-screen.android-app .home-platform-badge {
+  min-height: 46px;
+}
+
+.orlog-home-screen.android-app .home-tutorial-plaque {
+  min-width: 0;
+  gap: 8px;
+  padding: 7px 9px;
+}
+
+.orlog-home-screen.android-app .home-tutorial-seal {
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+}
+
+.orlog-home-screen.android-app .home-platform-badge {
+  padding: 7px 9px;
+}
+
+.orlog-home-screen.android-app .platform-link-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.orlog-home-screen.android-app .home-tutorial-copy > span {
+  font-size: 12px;
+  letter-spacing: 0.07em;
+}
+
+.orlog-home-screen.android-app .home-tutorial-copy > small {
+  display: none;
+}
+
+.android-home-action-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 85;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 7px;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
+  background:
+    linear-gradient(180deg, rgba(12, 9, 7, 0.96), rgba(12, 9, 7, 0.82) 72%, rgba(12, 9, 7, 0));
+  pointer-events: auto;
+}
+
+.android-home-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 7px 10px;
+  color: #f4e7cd;
+  background: rgba(19, 16, 14, 0.88);
+  border: 1px solid rgba(198, 130, 52, 0.5);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.55),
+    0 5px 14px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-heading), serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.android-home-action.primary {
+  justify-content: flex-start;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(242, 184, 79, 0.22), transparent 32%),
+    linear-gradient(180deg, rgba(68, 48, 31, 0.98), rgba(27, 18, 12, 0.98));
+  border-color: rgba(198, 130, 52, 0.76);
+}
+
+.android-home-action > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.android-home-action.primary > span {
+  color: #2a1606;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 241, 196, 0.95), rgba(221, 154, 57, 0.92) 48%, rgba(116, 72, 18, 0.98) 100%);
+  border-radius: 50%;
+  font-size: 16px;
+}
+
+.android-home-action svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
 .home-platform-badge:hover,
@@ -1660,6 +2043,14 @@ button,
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .orlog-home-screen.android-app {
+    padding-top: calc(env(safe-area-inset-top) + 58px);
+  }
+
+  .orlog-home-screen.android-app .orlog-home-utility-row {
+    display: none;
+  }
+
   .orlog-game-screen {
     height: 100dvh;
     min-height: 100dvh;
@@ -1734,6 +2125,63 @@ button,
     width: 20px;
     height: 20px;
     font-size: 13px;
+  }
+
+  .god-favor-splash {
+    top: calc(env(safe-area-inset-top) + 186px);
+    width: calc(100vw - 24px);
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 12px;
+    transform: translateX(-50%);
+  }
+
+  .god-favor-splash-rune {
+    width: 50px;
+    height: 50px;
+    font-size: 30px;
+  }
+
+  .god-favor-splash-kicker {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .god-favor-splash-title {
+    font-size: 16px;
+    letter-spacing: 0.04em;
+  }
+
+  .god-favor-splash-effects {
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .god-favor-splash-effects span {
+    min-height: 22px;
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .orlog-momentum-callouts {
+    top: calc(env(safe-area-inset-top) + 108px);
+    gap: 5px;
+    width: calc(100vw - 24px);
+  }
+
+  .momentum-chip {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 5px 7px;
+  }
+
+  .momentum-chip span {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+  }
+
+  .momentum-chip small {
+    font-size: 9px;
   }
 
   .orlog-top-actions {
@@ -1875,16 +2323,58 @@ button,
 
   .home-tutorial-plaque,
   .home-platform-badge {
-    min-height: 50px;
+    min-height: 46px;
+  }
+
+  .orlog-home-utility-row {
+    width: 100%;
+    gap: 7px;
+  }
+
+  .home-tutorial-plaque {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 8px;
+    padding: 7px 9px;
+  }
+
+  .home-tutorial-seal {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+  }
+
+  .home-platform-badge {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+  }
+
+  .orlog-home-screen.android-app .orlog-home-utility-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+  }
+
+  .orlog-home-screen.android-app .home-platform-badge {
+    padding: 7px 8px;
+    font-size: 0;
+  }
+
+  .orlog-home-screen.android-app .home-platform-badge > span:last-child {
+    display: none;
+  }
+
+  .platform-link-icon {
+    width: 22px;
+    height: 22px;
   }
 
   .home-tutorial-copy > span {
-    font-size: 13px;
-    letter-spacing: 0.09em;
+    font-size: 12px;
+    letter-spacing: 0.07em;
   }
 
   .home-tutorial-copy > small {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .tutorial-modal-backdrop {
